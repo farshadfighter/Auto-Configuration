@@ -18,7 +18,7 @@ celery_app = Celery(
     "ngfabric",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.workers.tasks.discovery", "app.workers.tasks.deployment"],
+    include=["app.workers.tasks.discovery", "app.workers.tasks.deployment", "app.workers.tasks.drift"],
 )
 
 celery_app.conf.update(

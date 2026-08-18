@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -75,7 +75,6 @@ class ResourceLock(Base):
     releasing the lock doesn't strand the asset locked forever (spec section 51 TTL note)."""
 
     __tablename__ = "resource_locks"
-    __table_args__ = (UniqueConstraint("asset_id", "lock_type", name="uq_resource_lock_asset_type"),)
 
     asset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True)
     lock_type: Mapped[str] = mapped_column(String(30), primary_key=True, default="deployment")

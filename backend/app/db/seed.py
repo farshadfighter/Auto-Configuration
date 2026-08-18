@@ -57,6 +57,10 @@ DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
     ("backup.restore", "Restore a backup to a live device"),
     ("deployment.view", "View deployment jobs, events, and results"),
     ("deployment.execute", "Create and start deployment jobs"),
+    ("drift.view", "View configuration drift findings"),
+    ("drift.run", "Trigger a drift analysis run"),
+    ("drift.triage", "Accept, ignore, or remediate a drift finding"),
+    ("reports.view", "View reports"),
 ]
 
 # Default roles - spec section 74. Super Administrator gets is_superuser bypass, not an
@@ -72,7 +76,7 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "design.view", "design.create", "design.edit", "design.approve",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
         "approval.view", "approval.approve", "backup.view", "backup.create", "backup.restore",
-        "deployment.view", "deployment.execute",
+        "deployment.view", "deployment.execute", "drift.view", "drift.run", "drift.triage", "reports.view",
     ],
     "Network Architect": [
         "asset.view", "asset.create", "asset.edit", "credential.view", "audit.view",
@@ -81,7 +85,7 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "design.view", "design.create", "design.edit", "design.approve",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
         "approval.view", "approval.approve", "backup.view", "backup.create", "backup.restore",
-        "deployment.view", "deployment.execute",
+        "deployment.view", "deployment.execute", "drift.view", "drift.run", "drift.triage", "reports.view",
     ],
     "Network Engineer": [
         "asset.view", "asset.edit", "credential.view",
@@ -90,11 +94,13 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "design.view", "design.create", "design.edit",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
         "backup.view", "backup.create", "deployment.view", "deployment.execute",
+        "drift.view", "drift.run", "drift.triage", "reports.view",
     ],
     "Security Engineer": [
         "asset.view", "asset.edit", "credential.view", "audit.view", "topology.view",
         "best_practice.view", "best_practice.run", "best_practice.triage",
         "design.view", "configuration.view", "approval.view", "approval.approve", "backup.view",
+        "drift.view", "reports.view",
     ],
     "Microsoft Engineer": [
         "asset.view", "asset.edit", "credential.view", "discovery.view", "discovery.manage",
@@ -102,22 +108,23 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "design.view", "design.create", "design.edit",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
         "backup.view", "backup.create", "deployment.view", "deployment.execute",
+        "drift.view", "drift.run", "drift.triage", "reports.view",
     ],
     "Approver": [
         "asset.view", "audit.view", "best_practice.view", "design.view", "design.approve", "configuration.view",
-        "approval.view", "approval.approve",
+        "approval.view", "approval.approve", "reports.view",
     ],
     "Operator": [
         "asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view",
-        "backup.view", "deployment.view",
+        "backup.view", "deployment.view", "drift.view", "reports.view",
     ],
     "Auditor": [
         "audit.view", "asset.view", "best_practice.view", "design.view", "configuration.view",
-        "approval.view", "backup.view", "deployment.view",
+        "approval.view", "backup.view", "deployment.view", "drift.view", "reports.view",
     ],
     "Viewer": [
         "asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view",
-        "backup.view", "deployment.view",
+        "backup.view", "deployment.view", "drift.view", "reports.view",
     ],
 }
 

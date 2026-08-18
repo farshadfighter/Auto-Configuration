@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAsset, useAssetRelationships } from "../../hooks/useAssets";
 import { useAssetBackups, useCreateBackup } from "../../hooks/useBackups";
+import { useAssetConfigurationVersions } from "../../hooks/useConfiguration";
 import { getErrorMessage } from "../../services/api";
 
 export function AssetDetailPage() {
@@ -9,6 +10,7 @@ export function AssetDetailPage() {
   const { data: asset, isLoading, isError } = useAsset(assetId);
   const { data: relationships } = useAssetRelationships(assetId);
   const { data: backups } = useAssetBackups(assetId);
+  const { data: versions } = useAssetConfigurationVersions(assetId);
   const createBackup = useCreateBackup(assetId ?? "");
   const [technology, setTechnology] = useState("cisco_iosxe");
 
@@ -84,6 +86,34 @@ export function AssetDetailPage() {
                 <td>{b.technology}</td>
                 <td>{b.size_bytes} B</td>
                 <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{b.checksum.slice(0, 12)}…</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <h2>Configuration Version History</h2>
+      {!versions || versions.length === 0 ? (
+        <p className="empty-state">No deployed configuration versions yet.</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Deployed</th>
+              <th>Technology</th>
+              <th>Object Type</th>
+              <th>Version</th>
+              <th>Checksum</th>
+            </tr>
+          </thead>
+          <tbody>
+            {versions.map((v) => (
+              <tr key={v.id}>
+                <td>{new Date(v.created_at).toLocaleString()}</td>
+                <td>{v.technology}</td>
+                <td>{v.object_type}</td>
+                <td>v{v.version_number}</td>
+                <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{v.checksum.slice(0, 12)}…</td>
               </tr>
             ))}
           </tbody>

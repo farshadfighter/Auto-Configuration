@@ -1,7 +1,8 @@
 import enum
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -132,3 +133,23 @@ class ConfigurationProfile(UUIDPKMixin, TimestampMixin, Base):
     status: Mapped[ProfileStatus] = mapped_column(Enum(ProfileStatus, name="profile_status", values_callable=_enum_values), default=ProfileStatus.DRAFT)
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+
+class ConfigurationVersion(UUIDPKMixin, Base):
+    """One row per configuration object per successful deployment (spec section 68: for every
+    asset - version, source, timestamp, job, user, checksum). version_number increments per
+    (asset_id, technology, object_type) so each object's own history is independently numbered."""
+
+    __tablename__ = "configuration_versions"
+    __table_args__ = (UniqueConstraint("asset_id", "technology", "object_type", "version_number", name="uq_config_version"),)
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
+    configuration_object_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("configuration_objects.id"), nullable=False)
+    deployment_job_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("deployment_jobs.id"), nullable=False)
+    technology: Mapped[str] = mapped_column(String(100), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -145,6 +145,28 @@ export function useValidateJob(jobId: string) {
   });
 }
 
+export interface ConfigurationVersion {
+  id: string;
+  asset_id: string;
+  technology: string;
+  object_type: string;
+  version_number: number;
+  state: Record<string, unknown>;
+  checksum: string;
+  created_at: string;
+}
+
+export function useAssetConfigurationVersions(assetId: string | undefined) {
+  return useQuery({
+    queryKey: ["configuration", "versions", assetId],
+    enabled: Boolean(assetId),
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<ConfigurationVersion[]>>(`/assets/${assetId}/configuration-versions`);
+      return data.data;
+    },
+  });
+}
+
 export function useSubmitForApproval(jobId: string) {
   const queryClient = useQueryClient();
   return useMutation({

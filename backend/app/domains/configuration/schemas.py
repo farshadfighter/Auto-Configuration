@@ -72,6 +72,19 @@ class ProfileUpdate(BaseModel):
     parameters_template: dict | None = None
 
 
+class ConfigurationVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    asset_id: uuid.UUID
+    technology: str
+    object_type: str
+    version_number: int
+    state: dict
+    checksum: str
+    deployment_job_id: uuid.UUID
+    created_at: datetime
+
+
 class ProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

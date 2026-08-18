@@ -1,10 +1,13 @@
+import hashlib
+import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError, ValidationAppError
+from app.db.base import utcnow
 from app.domains.assets.models import Asset
 from app.domains.configuration import engine
 from app.domains.configuration.models import (
@@ -14,6 +17,7 @@ from app.domains.configuration.models import (
     ConfigurationObject,
     ConfigurationObjectDependency,
     ConfigurationProfile,
+    ConfigurationVersion,
     JobStatus,
     ProfileStatus,
     RiskLevel,
@@ -320,3 +324,47 @@ def create_new_profile_version(db: Session, profile_id: uuid.UUID, created_by: u
     db.add(new_version)
     db.flush()
     return new_version
+
+
+# --- Configuration Versioning (spec section 68) --------------------------------------------
+
+
+def record_version(db: Session, obj: ConfigurationObject, deployment_job_id: uuid.UUID, created_by: uuid.UUID | None) -> ConfigurationVersion:
+    """Called by Deployment once an object is successfully applied and verified."""
+    last_number = db.scalar(
+        select(func.max(ConfigurationVersion.version_number)).where(
+            ConfigurationVersion.asset_id == obj.asset_id,
+            ConfigurationVersion.technology == obj.technology,
+            ConfigurationVersion.object_type == obj.object_type,
+        )
+    )
+    checksum = hashlib.sha256(json.dumps(obj.parameters, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    version = ConfigurationVersion(
+        asset_id=obj.asset_id,
+        configuration_object_id=obj.id,
+        deployment_job_id=deployment_job_id,
+        technology=obj.technology,
+        object_type=obj.object_type,
+        version_number=(last_number or 0) + 1,
+        state=obj.parameters,
+        checksum=checksum,
+        created_by=created_by,
+        created_at=utcnow(),
+    )
+    db.add(version)
+    db.flush()
+    return version
+
+
+def list_versions_for_asset(db: Session, asset_id: uuid.UUID) -> list[ConfigurationVersion]:
+    return list(db.scalars(select(ConfigurationVersion).where(ConfigurationVersion.asset_id == asset_id).order_by(ConfigurationVersion.created_at.desc())))
+
+
+def get_latest_version_state(db: Session, asset_id: uuid.UUID, technology: str, object_type: str) -> dict | None:
+    version = db.scalar(
+        select(ConfigurationVersion)
+        .where(ConfigurationVersion.asset_id == asset_id, ConfigurationVersion.technology == technology, ConfigurationVersion.object_type == object_type)
+        .order_by(ConfigurationVersion.version_number.desc())
+        .limit(1)
+    )
+    return version.state if version else None

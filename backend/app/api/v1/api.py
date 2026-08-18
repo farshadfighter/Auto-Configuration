@@ -11,7 +11,9 @@ from app.domains.credentials.router import router as credentials_router
 from app.domains.deployment.router import router as deployment_router
 from app.domains.design.router import router as design_router
 from app.domains.discovery.router import router as discovery_router
+from app.domains.drift.router import router as drift_router
 from app.domains.identity.router import router as identity_router
+from app.domains.reporting.router import router as reporting_router
 from app.domains.topology.router import router as topology_router
 
 api_router = APIRouter()
@@ -28,3 +30,5 @@ api_router.include_router(catalog_router, tags=["catalog"])
 api_router.include_router(approval_router, tags=["approval"])
 api_router.include_router(backup_router, tags=["backup"])
 api_router.include_router(deployment_router, tags=["deployment"])
+api_router.include_router(drift_router, tags=["drift"])
+api_router.include_router(reporting_router, tags=["reporting"])

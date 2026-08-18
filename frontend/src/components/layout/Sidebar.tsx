@@ -12,8 +12,8 @@ const NAV_ITEMS = [
   { to: "/design-configuration", label: "Design & Configuration", enabled: true },
   { to: "/deployment", label: "Deployment", enabled: true },
   { to: "/backups", label: "Backups & Configuration", enabled: false },
-  { to: "/drift", label: "Configuration Drift", enabled: false },
-  { to: "/reports", label: "Reports", enabled: false },
+  { to: "/drift", label: "Configuration Drift", enabled: true },
+  { to: "/reports", label: "Reports", enabled: true },
   { to: "/audit", label: "Audit & Logs", enabled: true },
   { to: "/settings", label: "Settings", enabled: false },
 ];

@@ -12,6 +12,7 @@ from app.domains.configuration.schemas import (
     ConfigurationJobOut,
     ConfigurationObjectCreate,
     ConfigurationObjectOut,
+    ConfigurationVersionOut,
     DependencyCreate,
     ProfileCreate,
     ProfileOut,
@@ -148,3 +149,9 @@ def submit_for_approval(job_id: uuid.UUID, db: DbSession, current_user=Depends(r
     )
     db.commit()
     return success(ConfigurationJobOut.model_validate(job).model_dump(mode="json"))
+
+
+@router.get("/assets/{asset_id}/configuration-versions", response_model=None)
+def list_asset_versions(asset_id: uuid.UUID, db: DbSession, current_user=Depends(require_permission("configuration.view"))):
+    versions = service.list_versions_for_asset(db, asset_id)
+    return success([ConfigurationVersionOut.model_validate(v).model_dump(mode="json") for v in versions])

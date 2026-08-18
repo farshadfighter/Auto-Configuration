@@ -13,6 +13,8 @@ import { DesignCanvasPage } from "../modules/design/DesignCanvasPage";
 import { DesignListPage } from "../modules/design/DesignListPage";
 import { DeploymentDetailPage } from "../modules/deployment/DeploymentDetailPage";
 import { DeploymentJobsPage } from "../modules/deployment/DeploymentJobsPage";
+import { DriftFindingsPage } from "../modules/drift/DriftFindingsPage";
+import { ReportsPage } from "../modules/reports/ReportsPage";
 import { TopologyPage } from "../modules/topology/TopologyPage";
 import { FindingsPage } from "../modules/validation/FindingsPage";
 import { useAuthStore } from "../stores/authStore";
@@ -45,6 +47,8 @@ export const router = createBrowserRouter([
           { path: "/design-configuration/jobs/:jobId", element: <ConfigurationJobDetailPage /> },
           { path: "/deployment", element: <DeploymentJobsPage /> },
           { path: "/deployment/jobs/:deploymentId", element: <DeploymentDetailPage /> },
+          { path: "/drift", element: <DriftFindingsPage /> },
+          { path: "/reports", element: <ReportsPage /> },
           { path: "/audit", element: <AuditLogPage /> },
         ],
       },

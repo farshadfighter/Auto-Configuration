@@ -9,6 +9,7 @@ from app.db.base import utcnow
 from app.domains.assets.models import Asset
 from app.domains.backup import service as backup_service
 from app.domains.backup.models import BackupType
+from app.domains.configuration import service as configuration_service
 from app.domains.configuration.models import ConfigurationJob, ConfigurationObject
 from app.domains.configuration.models import JobStatus as ConfigJobStatus
 from app.domains.credentials import service as credentials_service
@@ -185,7 +186,9 @@ def execute_deployment(db: Session, deployment_id: uuid.UUID) -> DeploymentJob:
         if result_row:
             result_row.verified = verify_result.matches_expected
             result_row.verify_details = verify_result.actual_state
-        if not verify_result.matches_expected:
+        if verify_result.matches_expected:
+            configuration_service.record_version(db, obj, deployment.id, deployment.created_by)
+        else:
             all_verified = False
     db.flush()
 
