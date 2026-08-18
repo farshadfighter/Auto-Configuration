@@ -35,6 +35,10 @@ DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
     ("credential.manage", "Create/rotate credential profiles"),
     ("audit.view", "View audit log"),
     ("settings.manage", "Manage system settings"),
+    ("discovery.view", "View discovery jobs and results"),
+    ("discovery.manage", "Create/cancel discovery jobs"),
+    ("topology.view", "View topology graph and views"),
+    ("topology.edit", "Create/edit topology nodes, links, and layouts"),
 ]
 
 # Default roles - spec section 74. Super Administrator gets is_superuser bypass, not an
@@ -45,15 +49,22 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "user.view", "user.create", "user.edit", "role.view",
         "asset.view", "asset.create", "asset.edit", "asset.delete",
         "credential.view", "credential.manage", "audit.view", "settings.manage",
+        "discovery.view", "discovery.manage", "topology.view", "topology.edit",
     ],
-    "Network Architect": ["asset.view", "asset.create", "asset.edit", "credential.view", "audit.view"],
-    "Network Engineer": ["asset.view", "asset.edit", "credential.view"],
-    "Security Engineer": ["asset.view", "asset.edit", "credential.view", "audit.view"],
-    "Microsoft Engineer": ["asset.view", "asset.edit", "credential.view"],
+    "Network Architect": [
+        "asset.view", "asset.create", "asset.edit", "credential.view", "audit.view",
+        "discovery.view", "discovery.manage", "topology.view", "topology.edit",
+    ],
+    "Network Engineer": [
+        "asset.view", "asset.edit", "credential.view",
+        "discovery.view", "discovery.manage", "topology.view", "topology.edit",
+    ],
+    "Security Engineer": ["asset.view", "asset.edit", "credential.view", "audit.view", "topology.view"],
+    "Microsoft Engineer": ["asset.view", "asset.edit", "credential.view", "discovery.view", "discovery.manage"],
     "Approver": ["asset.view", "audit.view"],
-    "Operator": ["asset.view"],
+    "Operator": ["asset.view", "discovery.view", "topology.view"],
     "Auditor": ["audit.view", "asset.view"],
-    "Viewer": ["asset.view"],
+    "Viewer": ["asset.view", "discovery.view", "topology.view"],
 }
 
 

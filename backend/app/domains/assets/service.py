@@ -41,6 +41,16 @@ def find_duplicate(
     return db.scalar(query)
 
 
+def create_asset_record(db: Session, data: dict) -> Asset:
+    """Inserts an asset with no duplicate check. Callers that already resolved a duplicate
+    (e.g. discovery reconciliation) use this directly; API callers should use create_asset."""
+    asset_code = data.pop("asset_code", None) or _generate_asset_code()
+    asset = Asset(asset_code=asset_code, **data)
+    db.add(asset)
+    db.flush()
+    return asset
+
+
 def create_asset(db: Session, data: dict) -> Asset:
     duplicate = find_duplicate(
         db,
@@ -56,11 +66,7 @@ def create_asset(db: Session, data: dict) -> Asset:
             details={"existing_asset_id": str(duplicate.id), "existing_asset_code": duplicate.asset_code},
         )
 
-    asset_code = data.pop("asset_code", None) or _generate_asset_code()
-    asset = Asset(asset_code=asset_code, **data)
-    db.add(asset)
-    db.flush()
-    return asset
+    return create_asset_record(db, data)
 
 
 def get_asset(db: Session, asset_id: uuid.UUID) -> Asset:

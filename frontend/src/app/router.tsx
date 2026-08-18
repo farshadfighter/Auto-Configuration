@@ -6,6 +6,8 @@ import { AuditLogPage } from "../modules/audit/AuditLogPage";
 import { AssetDetailPage } from "../modules/assets/AssetDetailPage";
 import { AssetListPage } from "../modules/assets/AssetListPage";
 import { DashboardPage } from "../modules/dashboard/DashboardPage";
+import { DiscoveryJobsPage } from "../modules/discovery/DiscoveryJobsPage";
+import { TopologyPage } from "../modules/topology/TopologyPage";
 import { useAuthStore } from "../stores/authStore";
 
 function RequireAuth() {
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
           { path: "/dashboard", element: <DashboardPage /> },
           { path: "/assets", element: <AssetListPage /> },
           { path: "/assets/:assetId", element: <AssetDetailPage /> },
+          { path: "/discovery", element: <DiscoveryJobsPage /> },
+          { path: "/topology", element: <TopologyPage /> },
           { path: "/audit", element: <AuditLogPage /> },
         ],
       },

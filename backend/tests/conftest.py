@@ -18,6 +18,10 @@ from app.db.seed import DEFAULT_PERMISSIONS, DEFAULT_ROLES
 from app.domains.identity import service as identity_service
 from app.domains.identity.models import Permission, Role
 from app.main import app
+from app.workers.celery_app import celery_app
+
+# Run Celery tasks synchronously in-process for tests - no broker/worker required.
+celery_app.conf.update(task_always_eager=True, task_eager_propagates=True)
 
 TEST_DATABASE_URL = os.environ["NGFABRIC_DATABASE_URL"]
 engine = create_engine(TEST_DATABASE_URL, future=True)

@@ -6,8 +6,8 @@ import { NavLink } from "react-router-dom";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", enabled: true },
   { to: "/assets", label: "Assets", enabled: true },
-  { to: "/discovery", label: "Discovery", enabled: false },
-  { to: "/topology", label: "Topology", enabled: false },
+  { to: "/discovery", label: "Discovery", enabled: true },
+  { to: "/topology", label: "Topology", enabled: true },
   { to: "/validation", label: "Architecture Validation", enabled: false },
   { to: "/design-configuration", label: "Design & Configuration", enabled: false },
   { to: "/deployment", label: "Deployment", enabled: false },
