@@ -1,0 +1,138 @@
+import uuid
+
+from sqlalchemy import cast, func, or_, select
+from sqlalchemy.dialects.postgresql import INET, MACADDR
+from sqlalchemy.orm import Session
+
+from app.core.errors import ConflictError, NotFoundError
+from app.domains.assets.models import Asset, AssetRelationship
+
+
+def _generate_asset_code() -> str:
+    return f"AST-{uuid.uuid4().hex[:8].upper()}"
+
+
+def find_duplicate(
+    db: Session,
+    *,
+    serial_number: str | None,
+    management_ip: str | None,
+    hostname: str | None,
+    mac_address: str | None,
+    exclude_asset_id: uuid.UUID | None = None,
+) -> Asset | None:
+    """Identity factors per spec: serial number, management IP, hostname, MAC address."""
+    conditions = []
+    if serial_number:
+        conditions.append(Asset.serial_number == serial_number)
+    if management_ip:
+        # Postgres has no implicit inet = varchar operator; cast the literal explicitly.
+        conditions.append(Asset.management_ip == cast(management_ip, INET))
+    if hostname:
+        conditions.append(Asset.hostname == hostname)
+    if mac_address:
+        conditions.append(Asset.mac_address == cast(mac_address, MACADDR))
+    if not conditions:
+        return None
+
+    query = select(Asset).where(or_(*conditions), Asset.deleted_at.is_(None))
+    if exclude_asset_id:
+        query = query.where(Asset.id != exclude_asset_id)
+    return db.scalar(query)
+
+
+def create_asset(db: Session, data: dict) -> Asset:
+    duplicate = find_duplicate(
+        db,
+        serial_number=data.get("serial_number"),
+        management_ip=data.get("management_ip"),
+        hostname=data.get("hostname"),
+        mac_address=data.get("mac_address"),
+    )
+    if duplicate:
+        raise ConflictError(
+            "DUPLICATE_ASSET",
+            "An asset with the same serial number, management IP, hostname, or MAC address already exists.",
+            details={"existing_asset_id": str(duplicate.id), "existing_asset_code": duplicate.asset_code},
+        )
+
+    asset_code = data.pop("asset_code", None) or _generate_asset_code()
+    asset = Asset(asset_code=asset_code, **data)
+    db.add(asset)
+    db.flush()
+    return asset
+
+
+def get_asset(db: Session, asset_id: uuid.UUID) -> Asset:
+    asset = db.scalar(select(Asset).where(Asset.id == asset_id, Asset.deleted_at.is_(None)))
+    if not asset:
+        raise NotFoundError("ASSET_NOT_FOUND", f"Asset {asset_id} not found")
+    return asset
+
+
+def list_assets(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    site_id: uuid.UUID | None = None,
+    environment_id: uuid.UUID | None = None,
+    managed: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> tuple[list[Asset], int]:
+    query = select(Asset).where(Asset.deleted_at.is_(None))
+    if site_id:
+        query = query.where(Asset.site_id == site_id)
+    if environment_id:
+        query = query.where(Asset.environment_id == environment_id)
+    if managed:
+        query = query.where(Asset.managed == managed)
+    if status:
+        query = query.where(Asset.status == status)
+    if search:
+        like = f"%{search}%"
+        query = query.where(or_(Asset.name.ilike(like), Asset.hostname.ilike(like), Asset.asset_code.ilike(like)))
+
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+
+    items = list(
+        db.scalars(query.order_by(Asset.created_at.desc()).offset((page - 1) * page_size).limit(page_size))
+    )
+    return items, total
+
+
+def update_asset(db: Session, asset_id: uuid.UUID, data: dict) -> Asset:
+    asset = get_asset(db, asset_id)
+    for key, value in data.items():
+        if value is not None:
+            setattr(asset, key, value)
+    db.flush()
+    return asset
+
+
+def soft_delete_asset(db: Session, asset_id: uuid.UUID) -> None:
+    from app.db.base import utcnow
+
+    asset = get_asset(db, asset_id)
+    asset.deleted_at = utcnow()
+    db.flush()
+
+
+def create_relationship(db: Session, data: dict) -> AssetRelationship:
+    get_asset(db, data["source_asset_id"])
+    get_asset(db, data["target_asset_id"])
+    relationship = AssetRelationship(**data)
+    db.add(relationship)
+    db.flush()
+    return relationship
+
+
+def list_relationships(db: Session, asset_id: uuid.UUID) -> list[AssetRelationship]:
+    return list(
+        db.scalars(
+            select(AssetRelationship).where(
+                or_(AssetRelationship.source_asset_id == asset_id, AssetRelationship.target_asset_id == asset_id)
+            )
+        )
+    )
