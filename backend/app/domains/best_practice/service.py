@@ -112,7 +112,10 @@ def run_analysis(db: Session, *, triggered_by: uuid.UUID | None) -> BestPractice
     except Exception:
         run.status = BestPracticeRunStatus.FAILED
         run.completed_at = utcnow()
-        db.flush()
+        # Commit (not just flush) - the router's own db.commit() never runs once this raises,
+        # and a bare flush is rolled back when the request-scoped session closes, silently
+        # losing the FAILED status (same bug as configuration.service.generate).
+        db.commit()
         raise
 
     db.flush()

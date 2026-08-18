@@ -7,6 +7,8 @@ import { AssetDetailPage } from "../modules/assets/AssetDetailPage";
 import { AssetListPage } from "../modules/assets/AssetListPage";
 import { DashboardPage } from "../modules/dashboard/DashboardPage";
 import { DiscoveryJobsPage } from "../modules/discovery/DiscoveryJobsPage";
+import { ConfigurationJobDetailPage } from "../modules/configuration/ConfigurationJobDetailPage";
+import { ConfigurationJobsPage } from "../modules/configuration/ConfigurationJobsPage";
 import { DesignCanvasPage } from "../modules/design/DesignCanvasPage";
 import { DesignListPage } from "../modules/design/DesignListPage";
 import { TopologyPage } from "../modules/topology/TopologyPage";
@@ -37,6 +39,8 @@ export const router = createBrowserRouter([
           { path: "/validation", element: <FindingsPage /> },
           { path: "/design-configuration", element: <DesignListPage /> },
           { path: "/design-configuration/designs/:designId", element: <DesignCanvasPage /> },
+          { path: "/design-configuration/jobs", element: <ConfigurationJobsPage /> },
+          { path: "/design-configuration/jobs/:jobId", element: <ConfigurationJobDetailPage /> },
           { path: "/audit", element: <AuditLogPage /> },
         ],
       },

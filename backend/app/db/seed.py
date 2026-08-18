@@ -46,6 +46,10 @@ DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
     ("design.create", "Create architecture designs"),
     ("design.edit", "Edit design components/relationships and create new versions"),
     ("design.approve", "Approve an architecture design version"),
+    ("configuration.view", "View configuration jobs, objects, profiles, and the technology catalog"),
+    ("configuration.create", "Create configuration jobs/objects/profiles"),
+    ("configuration.generate", "Generate a configuration job's plan"),
+    ("configuration.validate", "Validate a configuration job"),
 ]
 
 # Default roles - spec section 74. Super Administrator gets is_superuser bypass, not an
@@ -59,33 +63,37 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "discovery.view", "discovery.manage", "topology.view", "topology.edit",
         "best_practice.view", "best_practice.run", "best_practice.triage",
         "design.view", "design.create", "design.edit", "design.approve",
+        "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
     ],
     "Network Architect": [
         "asset.view", "asset.create", "asset.edit", "credential.view", "audit.view",
         "discovery.view", "discovery.manage", "topology.view", "topology.edit",
         "best_practice.view", "best_practice.run", "best_practice.triage",
         "design.view", "design.create", "design.edit", "design.approve",
+        "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
     ],
     "Network Engineer": [
         "asset.view", "asset.edit", "credential.view",
         "discovery.view", "discovery.manage", "topology.view", "topology.edit",
         "best_practice.view", "best_practice.run",
         "design.view", "design.create", "design.edit",
+        "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
     ],
     "Security Engineer": [
         "asset.view", "asset.edit", "credential.view", "audit.view", "topology.view",
         "best_practice.view", "best_practice.run", "best_practice.triage",
-        "design.view",
+        "design.view", "configuration.view",
     ],
     "Microsoft Engineer": [
         "asset.view", "asset.edit", "credential.view", "discovery.view", "discovery.manage",
         "best_practice.view", "best_practice.run",
         "design.view", "design.create", "design.edit",
+        "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
     ],
-    "Approver": ["asset.view", "audit.view", "best_practice.view", "design.view", "design.approve"],
-    "Operator": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view"],
-    "Auditor": ["audit.view", "asset.view", "best_practice.view", "design.view"],
-    "Viewer": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view"],
+    "Approver": ["asset.view", "audit.view", "best_practice.view", "design.view", "design.approve", "configuration.view"],
+    "Operator": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view"],
+    "Auditor": ["audit.view", "asset.view", "best_practice.view", "design.view", "configuration.view"],
+    "Viewer": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view"],
 }
 
 
