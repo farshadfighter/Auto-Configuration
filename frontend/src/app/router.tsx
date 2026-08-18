@@ -7,7 +7,10 @@ import { AssetDetailPage } from "../modules/assets/AssetDetailPage";
 import { AssetListPage } from "../modules/assets/AssetListPage";
 import { DashboardPage } from "../modules/dashboard/DashboardPage";
 import { DiscoveryJobsPage } from "../modules/discovery/DiscoveryJobsPage";
+import { DesignCanvasPage } from "../modules/design/DesignCanvasPage";
+import { DesignListPage } from "../modules/design/DesignListPage";
 import { TopologyPage } from "../modules/topology/TopologyPage";
+import { FindingsPage } from "../modules/validation/FindingsPage";
 import { useAuthStore } from "../stores/authStore";
 
 function RequireAuth() {
@@ -31,6 +34,9 @@ export const router = createBrowserRouter([
           { path: "/assets/:assetId", element: <AssetDetailPage /> },
           { path: "/discovery", element: <DiscoveryJobsPage /> },
           { path: "/topology", element: <TopologyPage /> },
+          { path: "/validation", element: <FindingsPage /> },
+          { path: "/design-configuration", element: <DesignListPage /> },
+          { path: "/design-configuration/designs/:designId", element: <DesignCanvasPage /> },
           { path: "/audit", element: <AuditLogPage /> },
         ],
       },

@@ -1,0 +1,181 @@
+import uuid
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.core.errors import ConflictError, NotFoundError
+from app.db.base import utcnow
+from app.domains.design.models import (
+    ArchitectureDesign,
+    ArchitectureDesignVersion,
+    DesignApproval,
+    DesignAssetMapping,
+    DesignComponent,
+    DesignRecommendationMapping,
+    DesignRelationship,
+    DesignVersionStatus,
+)
+
+
+def create_design(db: Session, *, name: str, description: str | None, mode: str, created_by: uuid.UUID | None) -> ArchitectureDesign:
+    design = ArchitectureDesign(name=name, description=description, mode=mode, created_by=created_by)
+    db.add(design)
+    db.flush()
+    version = ArchitectureDesignVersion(design_id=design.id, version_number=1, created_by=created_by)
+    db.add(version)
+    db.flush()
+    return design
+
+
+def get_design(db: Session, design_id: uuid.UUID) -> ArchitectureDesign:
+    design = db.get(ArchitectureDesign, design_id)
+    if not design:
+        raise NotFoundError("DESIGN_NOT_FOUND", f"Design {design_id} not found")
+    return design
+
+
+def list_designs(db: Session, *, page: int = 1, page_size: int = 50) -> tuple[list[ArchitectureDesign], int]:
+    total = db.scalar(select(func.count()).select_from(ArchitectureDesign)) or 0
+    items = list(
+        db.scalars(
+            select(ArchitectureDesign)
+            .order_by(ArchitectureDesign.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return items, total
+
+
+def get_latest_version(db: Session, design_id: uuid.UUID) -> ArchitectureDesignVersion:
+    version = db.scalar(
+        select(ArchitectureDesignVersion)
+        .where(ArchitectureDesignVersion.design_id == design_id)
+        .order_by(ArchitectureDesignVersion.version_number.desc())
+        .limit(1)
+    )
+    if not version:
+        raise NotFoundError("DESIGN_VERSION_NOT_FOUND", f"No versions found for design {design_id}")
+    return version
+
+
+def get_version(db: Session, version_id: uuid.UUID) -> ArchitectureDesignVersion:
+    version = db.get(ArchitectureDesignVersion, version_id)
+    if not version:
+        raise NotFoundError("DESIGN_VERSION_NOT_FOUND", f"Design version {version_id} not found")
+    return version
+
+
+def _require_draft(version: ArchitectureDesignVersion) -> None:
+    if version.status != DesignVersionStatus.DRAFT:
+        raise ConflictError(
+            "DESIGN_VERSION_NOT_EDITABLE",
+            f"Design version {version.version_label} is {version.status.value} and cannot be edited. "
+            "Create a new version first.",
+        )
+
+
+def create_new_version(db: Session, design_id: uuid.UUID, created_by: uuid.UUID | None) -> ArchitectureDesignVersion:
+    """Clones the latest version's components/relationships into a new draft version
+    (spec section 22: editing after Approved must produce a new version)."""
+    get_design(db, design_id)
+    latest = get_latest_version(db, design_id)
+
+    new_version = ArchitectureDesignVersion(
+        design_id=design_id, version_number=latest.version_number + 1, created_by=created_by
+    )
+    db.add(new_version)
+    db.flush()
+
+    component_id_map: dict[uuid.UUID, uuid.UUID] = {}
+    for component in db.scalars(select(DesignComponent).where(DesignComponent.design_version_id == latest.id)):
+        clone = DesignComponent(
+            design_version_id=new_version.id,
+            component_type=component.component_type,
+            technology=component.technology,
+            name=component.name,
+            properties=component.properties,
+            position=component.position,
+        )
+        db.add(clone)
+        db.flush()
+        component_id_map[component.id] = clone.id
+
+    for relationship in db.scalars(select(DesignRelationship).where(DesignRelationship.design_version_id == latest.id)):
+        db.add(
+            DesignRelationship(
+                design_version_id=new_version.id,
+                source_component_id=component_id_map[relationship.source_component_id],
+                target_component_id=component_id_map[relationship.target_component_id],
+                relationship_type=relationship.relationship_type,
+            )
+        )
+    db.flush()
+    return new_version
+
+
+def add_component(db: Session, version_id: uuid.UUID, data: dict) -> DesignComponent:
+    version = get_version(db, version_id)
+    _require_draft(version)
+    component = DesignComponent(design_version_id=version_id, **data)
+    db.add(component)
+    db.flush()
+    return component
+
+
+def add_relationship(db: Session, version_id: uuid.UUID, data: dict) -> DesignRelationship:
+    version = get_version(db, version_id)
+    _require_draft(version)
+    for key in ("source_component_id", "target_component_id"):
+        if not db.get(DesignComponent, data[key]):
+            raise NotFoundError("DESIGN_COMPONENT_NOT_FOUND", f"Design component {data[key]} not found")
+    relationship = DesignRelationship(design_version_id=version_id, **data)
+    db.add(relationship)
+    db.flush()
+    return relationship
+
+
+def get_version_graph(db: Session, version_id: uuid.UUID) -> tuple[list[DesignComponent], list[DesignRelationship]]:
+    get_version(db, version_id)
+    components = list(db.scalars(select(DesignComponent).where(DesignComponent.design_version_id == version_id)))
+    relationships = list(
+        db.scalars(select(DesignRelationship).where(DesignRelationship.design_version_id == version_id))
+    )
+    return components, relationships
+
+
+def map_component_to_asset(db: Session, component_id: uuid.UUID, asset_id: uuid.UUID) -> None:
+    if not db.get(DesignComponent, component_id):
+        raise NotFoundError("DESIGN_COMPONENT_NOT_FOUND", f"Design component {component_id} not found")
+    exists = db.get(DesignAssetMapping, {"design_component_id": component_id, "asset_id": asset_id})
+    if not exists:
+        db.add(DesignAssetMapping(design_component_id=component_id, asset_id=asset_id))
+        db.flush()
+
+
+def map_recommendation(db: Session, version_id: uuid.UUID, finding_id: uuid.UUID) -> None:
+    get_version(db, version_id)
+    exists = db.get(DesignRecommendationMapping, {"design_version_id": version_id, "finding_id": finding_id})
+    if not exists:
+        db.add(DesignRecommendationMapping(design_version_id=version_id, finding_id=finding_id))
+        db.flush()
+
+
+def approve_design(db: Session, design_id: uuid.UUID, approved_by: uuid.UUID | None, comment: str | None) -> ArchitectureDesignVersion:
+    version = get_latest_version(db, design_id)
+    if version.status == DesignVersionStatus.APPROVED:
+        return version
+
+    previous_approved = db.scalar(
+        select(ArchitectureDesignVersion).where(
+            ArchitectureDesignVersion.design_id == design_id,
+            ArchitectureDesignVersion.status == DesignVersionStatus.APPROVED,
+        )
+    )
+    if previous_approved:
+        previous_approved.status = DesignVersionStatus.SUPERSEDED
+
+    version.status = DesignVersionStatus.APPROVED
+    db.add(DesignApproval(design_version_id=version.id, approved_by=approved_by, comment=comment, approved_at=utcnow()))
+    db.flush()
+    return version

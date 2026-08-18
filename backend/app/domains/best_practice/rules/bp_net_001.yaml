@@ -1,0 +1,17 @@
+id: BP-NET-001
+technology: network
+category: network
+version: "1.0"
+severity: high
+title: Firewall-role asset has no zone assigned
+description: >
+  Firewalls are boundary devices; without an assigned zone, zone-based policy validation
+  and topology segmentation checks cannot be performed for this device.
+applies_to:
+  - field: asset.role_code
+    operator: equals
+    value: firewall
+conditions:
+  - field: asset.zone_id
+    operator: not_exists
+recommendation: Assign this firewall to a security zone.

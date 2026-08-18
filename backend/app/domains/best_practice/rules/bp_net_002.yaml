@@ -1,0 +1,18 @@
+id: BP-NET-002
+technology: network
+category: network
+version: "1.0"
+severity: high
+title: Critical asset has no redundant topology link
+description: >
+  Assets marked Critical should have more than one topology link so a single failed link
+  or upstream device does not take the asset offline.
+applies_to:
+  - field: asset.criticality
+    operator: equals
+    value: critical
+conditions:
+  - field: topology.degree
+    operator: less_than
+    value: 2
+recommendation: Add a redundant physical or logical link for this asset.
