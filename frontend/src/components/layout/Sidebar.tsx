@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { to: "/topology", label: "Topology", enabled: true },
   { to: "/validation", label: "Architecture Validation", enabled: true },
   { to: "/design-configuration", label: "Design & Configuration", enabled: true },
-  { to: "/deployment", label: "Deployment", enabled: false },
+  { to: "/deployment", label: "Deployment", enabled: true },
   { to: "/backups", label: "Backups & Configuration", enabled: false },
   { to: "/drift", label: "Configuration Drift", enabled: false },
   { to: "/reports", label: "Reports", enabled: false },

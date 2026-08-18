@@ -109,6 +109,20 @@ def viewer_user(db_session, seeded_permissions):
     return user
 
 
+@pytest.fixture
+def approver_user(db_session, seeded_permissions):
+    role = db_session.query(Role).filter_by(name="Approver").one()
+    user = identity_service.create_user(
+        db_session,
+        username="approver1",
+        email="approver1@ngfabric.internal",
+        password="ApproverPass123!",
+        role_ids=[role.id],
+    )
+    db_session.commit()
+    return user
+
+
 def auth_headers(client: TestClient, username: str, password: str) -> dict[str, str]:
     response = client.post("/api/v1/auth/login", json={"username": username, "password": password})
     assert response.status_code == 200, response.text
@@ -124,6 +138,11 @@ def admin_headers(client, admin_user):
 @pytest.fixture
 def viewer_headers(client, viewer_user):
     return auth_headers(client, "viewer1", "ViewerPass123!")
+
+
+@pytest.fixture
+def approver_headers(client, approver_user):
+    return auth_headers(client, "approver1", "ApproverPass123!")
 
 
 @pytest.fixture

@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import { useCreateCsvDiscoveryJob, useDiscoveryErrors, useDiscoveryJobs } from "../../hooks/useDiscovery";
+import { getErrorMessage } from "../../services/api";
 
 const STATUS_BADGE: Record<string, string> = {
   success: "badge-low",
@@ -42,7 +43,7 @@ export function DiscoveryJobsPage() {
         </div>
         {createJob.isError && (
           <p className="form-error">
-            Failed to start discovery job: {String((createJob.error as Error)?.message ?? "unknown error")}
+            Failed to start discovery job: {getErrorMessage(createJob.error)}
           </p>
         )}
       </section>

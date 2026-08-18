@@ -50,6 +50,13 @@ DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
     ("configuration.create", "Create configuration jobs/objects/profiles"),
     ("configuration.generate", "Generate a configuration job's plan"),
     ("configuration.validate", "Validate a configuration job"),
+    ("approval.view", "View approval requests"),
+    ("approval.approve", "Approve or reject a configuration job"),
+    ("backup.view", "View backups"),
+    ("backup.create", "Create a backup (manual or from a live device)"),
+    ("backup.restore", "Restore a backup to a live device"),
+    ("deployment.view", "View deployment jobs, events, and results"),
+    ("deployment.execute", "Create and start deployment jobs"),
 ]
 
 # Default roles - spec section 74. Super Administrator gets is_superuser bypass, not an
@@ -64,6 +71,8 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "best_practice.view", "best_practice.run", "best_practice.triage",
         "design.view", "design.create", "design.edit", "design.approve",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
+        "approval.view", "approval.approve", "backup.view", "backup.create", "backup.restore",
+        "deployment.view", "deployment.execute",
     ],
     "Network Architect": [
         "asset.view", "asset.create", "asset.edit", "credential.view", "audit.view",
@@ -71,6 +80,8 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "best_practice.view", "best_practice.run", "best_practice.triage",
         "design.view", "design.create", "design.edit", "design.approve",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
+        "approval.view", "approval.approve", "backup.view", "backup.create", "backup.restore",
+        "deployment.view", "deployment.execute",
     ],
     "Network Engineer": [
         "asset.view", "asset.edit", "credential.view",
@@ -78,22 +89,36 @@ DEFAULT_ROLES: dict[str, list[str]] = {
         "best_practice.view", "best_practice.run",
         "design.view", "design.create", "design.edit",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
+        "backup.view", "backup.create", "deployment.view", "deployment.execute",
     ],
     "Security Engineer": [
         "asset.view", "asset.edit", "credential.view", "audit.view", "topology.view",
         "best_practice.view", "best_practice.run", "best_practice.triage",
-        "design.view", "configuration.view",
+        "design.view", "configuration.view", "approval.view", "approval.approve", "backup.view",
     ],
     "Microsoft Engineer": [
         "asset.view", "asset.edit", "credential.view", "discovery.view", "discovery.manage",
         "best_practice.view", "best_practice.run",
         "design.view", "design.create", "design.edit",
         "configuration.view", "configuration.create", "configuration.generate", "configuration.validate",
+        "backup.view", "backup.create", "deployment.view", "deployment.execute",
     ],
-    "Approver": ["asset.view", "audit.view", "best_practice.view", "design.view", "design.approve", "configuration.view"],
-    "Operator": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view"],
-    "Auditor": ["audit.view", "asset.view", "best_practice.view", "design.view", "configuration.view"],
-    "Viewer": ["asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view"],
+    "Approver": [
+        "asset.view", "audit.view", "best_practice.view", "design.view", "design.approve", "configuration.view",
+        "approval.view", "approval.approve",
+    ],
+    "Operator": [
+        "asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view",
+        "backup.view", "deployment.view",
+    ],
+    "Auditor": [
+        "audit.view", "asset.view", "best_practice.view", "design.view", "configuration.view",
+        "approval.view", "backup.view", "deployment.view",
+    ],
+    "Viewer": [
+        "asset.view", "discovery.view", "topology.view", "best_practice.view", "design.view", "configuration.view",
+        "backup.view", "deployment.view",
+    ],
 }
 
 

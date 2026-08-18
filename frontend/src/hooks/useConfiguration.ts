@@ -152,6 +152,11 @@ export function useSubmitForApproval(jobId: string) {
       const { data } = await api.post<ApiSuccess<ConfigurationJob>>(`/configuration/jobs/${jobId}/submit-approval`);
       return data.data;
     },
-    onSuccess: () => invalidateJob(queryClient, jobId),
+    onSuccess: () => {
+      invalidateJob(queryClient, jobId);
+      // The submit-approval call creates the approval request server-side; without this the
+      // "Approval Required" panel never appears until an unrelated refetch happens to fire.
+      queryClient.invalidateQueries({ queryKey: ["approval", "requests", "job", jobId] });
+    },
   });
 }

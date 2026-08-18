@@ -11,6 +11,8 @@ import { ConfigurationJobDetailPage } from "../modules/configuration/Configurati
 import { ConfigurationJobsPage } from "../modules/configuration/ConfigurationJobsPage";
 import { DesignCanvasPage } from "../modules/design/DesignCanvasPage";
 import { DesignListPage } from "../modules/design/DesignListPage";
+import { DeploymentDetailPage } from "../modules/deployment/DeploymentDetailPage";
+import { DeploymentJobsPage } from "../modules/deployment/DeploymentJobsPage";
 import { TopologyPage } from "../modules/topology/TopologyPage";
 import { FindingsPage } from "../modules/validation/FindingsPage";
 import { useAuthStore } from "../stores/authStore";
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
           { path: "/design-configuration/designs/:designId", element: <DesignCanvasPage /> },
           { path: "/design-configuration/jobs", element: <ConfigurationJobsPage /> },
           { path: "/design-configuration/jobs/:jobId", element: <ConfigurationJobDetailPage /> },
+          { path: "/deployment", element: <DeploymentJobsPage /> },
+          { path: "/deployment/jobs/:deploymentId", element: <DeploymentDetailPage /> },
           { path: "/audit", element: <AuditLogPage /> },
         ],
       },

@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useApprovalRequestForJob, useApproveRequest, useRejectRequest } from "../../hooks/useApproval";
 import { useAssets } from "../../hooks/useAssets";
+import { getErrorMessage } from "../../services/api";
 import {
   useAddConfigurationObject,
   useConfigurationDiff,
@@ -11,6 +13,7 @@ import {
   useTechnologyCatalog,
   useValidateJob,
 } from "../../hooks/useConfiguration";
+import { useCreateDeployment } from "../../hooks/useDeployment";
 
 const OBJECT_TYPE_PARAM_HINTS: Record<string, string> = {
   vlan: '{"vlan_id": 120, "name": "Guest"}',
@@ -30,6 +33,7 @@ const VALIDATION_BADGE: Record<string, string> = {
 
 export function ConfigurationJobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
+  const navigate = useNavigate();
   const { data: job } = useConfigurationJob(jobId);
   const { data: objects } = useConfigurationObjects(jobId);
   const { data: assets } = useAssets({ page_size: 200 });
@@ -38,6 +42,11 @@ export function ConfigurationJobDetailPage() {
   const generateJob = useGenerateJob(jobId ?? "");
   const validateJob = useValidateJob(jobId ?? "");
   const submitApproval = useSubmitForApproval(jobId ?? "");
+  const { data: approvalRequest } = useApprovalRequestForJob(jobId);
+  const approveRequest = useApproveRequest(jobId ?? "");
+  const rejectRequest = useRejectRequest(jobId ?? "");
+  const createDeployment = useCreateDeployment();
+  const [rejectReason, setRejectReason] = useState("");
   const [showDiff, setShowDiff] = useState(false);
   const { data: diff } = useConfigurationDiff(jobId, showDiff);
 
@@ -82,6 +91,17 @@ export function ConfigurationJobDetailPage() {
               Submit for Approval
             </button>
           )}
+          {job.status === "approved" && (
+            <button
+              onClick={async () => {
+                const deployment = await createDeployment.mutateAsync(job.id);
+                navigate(`/deployment/jobs/${deployment.id}`);
+              }}
+              disabled={createDeployment.isPending}
+            >
+              Create Deployment
+            </button>
+          )}
           <button onClick={() => setShowDiff((v) => !v)}>{showDiff ? "Hide Diff" : "Show Diff"}</button>
         </div>
       </div>
@@ -90,6 +110,29 @@ export function ConfigurationJobDetailPage() {
         Status: <span className="badge badge-medium">{job.status}</span>{" "}
         {job.risk_level && <span className={`badge badge-${job.risk_level}`}>risk: {job.risk_level}</span>}
       </p>
+
+      {job.status === "pending_approval" && approvalRequest && approvalRequest.status === "pending" && (
+        <section style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>
+          <h2>Approval Required</h2>
+          <p className="muted">
+            Requires {approvalRequest.required_approvals} approval(s) at risk level {approvalRequest.risk_level}.
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => approveRequest.mutate({ requestId: approvalRequest.id })} disabled={approveRequest.isPending}>
+              Approve
+            </button>
+            <input placeholder="Rejection reason" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+            <button
+              onClick={() => rejectRequest.mutate({ requestId: approvalRequest.id, comment: rejectReason })}
+              disabled={!rejectReason.trim() || rejectRequest.isPending}
+            >
+              Reject
+            </button>
+          </div>
+          {approveRequest.isError && <p className="form-error">{getErrorMessage(approveRequest.error, "Could not approve")}</p>}
+          {rejectRequest.isError && <p className="form-error">{getErrorMessage(rejectRequest.error, "Could not reject")}</p>}
+        </section>
+      )}
 
       {job.status === "draft" && (
         <section style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>

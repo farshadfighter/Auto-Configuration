@@ -58,3 +58,14 @@ export interface ApiError {
   success: false;
   error: { code: string; message: string; details?: Record<string, unknown> };
 }
+
+/** Extracts the backend's own error message from a failed request instead of axios's generic
+ * "Request failed with status code 409" - the API always returns {success:false, error:{message}}
+ * on failure (see app/main.py's exception handler), so this should apply to every mutation. */
+export function getErrorMessage(error: unknown, fallback = "Something went wrong"): string {
+  if (axios.isAxiosError<ApiError>(error)) {
+    return error.response?.data?.error?.message ?? error.message ?? fallback;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+}

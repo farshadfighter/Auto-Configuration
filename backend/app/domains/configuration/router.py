@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.deps import DbSession, require_permission
 from app.core.responses import success
+from app.domains.approval import service as approval_service
 from app.domains.audit.service import record_audit_event
 from app.domains.configuration import service
 from app.domains.configuration.schemas import (
@@ -141,6 +142,7 @@ def get_diff(job_id: uuid.UUID, db: DbSession, current_user=Depends(require_perm
 @router.post("/configuration/jobs/{job_id}/submit-approval", response_model=None)
 def submit_for_approval(job_id: uuid.UUID, db: DbSession, current_user=Depends(require_permission("configuration.create"))):
     job = service.submit_for_approval(db, job_id)
+    approval_service.create_request_for_job(db, job.id, job.risk_level.value if job.risk_level else None)
     record_audit_event(
         db, user_id=current_user.id, action="CONFIG_JOB_SUBMITTED_FOR_APPROVAL", object_type="configuration_job", object_id=job.id, result="SUCCESS"
     )

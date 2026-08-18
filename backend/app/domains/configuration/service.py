@@ -245,6 +245,24 @@ def submit_for_approval(db: Session, job_id: uuid.UUID) -> ConfigurationJob:
     return job
 
 
+def mark_approved(db: Session, job_id: uuid.UUID, approved_by: uuid.UUID | None) -> ConfigurationJob:
+    """Called by the approval domain once an approval request is fully satisfied. APPROVED
+    is treated as deployment-ready for MVP; the distinct READY state in JobStatus is reserved
+    for a future explicit readiness gate (e.g. scheduled change window) that doesn't exist yet."""
+    job = get_job(db, job_id)
+    job.status = JobStatus.APPROVED
+    job.approved_by = approved_by
+    db.flush()
+    return job
+
+
+def mark_rejected(db: Session, job_id: uuid.UUID) -> ConfigurationJob:
+    job = get_job(db, job_id)
+    job.status = JobStatus.REJECTED
+    db.flush()
+    return job
+
+
 # --- Configuration Profiles (spec section 45) ---------------------------------------------
 
 

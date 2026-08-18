@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAsset, useAssetRelationships } from "../../hooks/useAssets";
+import { useAssetBackups, useCreateBackup } from "../../hooks/useBackups";
+import { getErrorMessage } from "../../services/api";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
   const { data: asset, isLoading, isError } = useAsset(assetId);
   const { data: relationships } = useAssetRelationships(assetId);
+  const { data: backups } = useAssetBackups(assetId);
+  const createBackup = useCreateBackup(assetId ?? "");
+  const [technology, setTechnology] = useState("cisco_iosxe");
 
   if (isLoading) return <p>Loading...</p>;
   if (isError || !asset) return <p className="form-error">Asset not found.</p>;
@@ -40,6 +46,48 @@ export function AssetDetailPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      <h2>Backups</h2>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        <select value={technology} onChange={(e) => setTechnology(e.target.value)}>
+          <option value="cisco_iosxe">cisco_iosxe</option>
+          <option value="fortios">fortios</option>
+          <option value="windows_dns">windows_dns</option>
+          <option value="windows_dhcp">windows_dhcp</option>
+        </select>
+        <button onClick={() => createBackup.mutate({ technology })} disabled={createBackup.isPending}>
+          Pull Live Backup
+        </button>
+        {createBackup.isError && (
+          <span className="form-error">{getErrorMessage(createBackup.error, "Backup failed - is the device reachable?")}</span>
+        )}
+      </div>
+      {!backups || backups.length === 0 ? (
+        <p className="empty-state">No backups yet.</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Type</th>
+              <th>Technology</th>
+              <th>Size</th>
+              <th>Checksum</th>
+            </tr>
+          </thead>
+          <tbody>
+            {backups.map((b) => (
+              <tr key={b.id}>
+                <td>{new Date(b.created_at).toLocaleString()}</td>
+                <td>{b.backup_type}</td>
+                <td>{b.technology}</td>
+                <td>{b.size_bytes} B</td>
+                <td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{b.checksum.slice(0, 12)}…</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
