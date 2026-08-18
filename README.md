@@ -1,10 +1,12 @@
 # NGFabric
 
 Infrastructure design, configuration, and change automation platform. See the product and
-technical specifications discussed in project history for the full scope; this repository
-currently implements **Phase 1: Foundation** per the development order in the technical spec
-(section 127) - Auth, RBAC, Assets, Credentials, Audit - as the base the rest of the platform
-(Discovery, Topology, Validation, Design, Configuration, Deployment, Backup, Drift) builds on.
+technical specifications discussed in project history for the full scope. This repository
+implements the complete MVP feature set from the technical spec's phased plan (section 127):
+asset management, discovery, topology, an architecture best-practice engine, architecture
+design, a driver-based configuration builder, an approval workflow, a deployment engine with
+backup and rollback, configuration versioning, drift detection, reporting, and a hash-chained
+audit log - all behind authentication and RBAC.
 
 ## Stack
 
@@ -27,7 +29,12 @@ docker compose exec backend python -m app.db.seed
 Backend: http://localhost:8000 (docs at `/docs`) · Frontend: http://localhost:5173
 
 The seed command prints a one-time bootstrap Super Administrator username/password unless
-`NGFABRIC_SEED_ADMIN_PASSWORD` is set in the environment.
+`NGFABRIC_SEED_ADMIN_PASSWORD` is set in the environment. It also seeds the full RBAC
+permission/role matrix (39 permissions across 10 roles, from Super Administrator down to
+Viewer).
+
+`docker compose up` also starts a Celery worker against the same Redis instance, used for
+discovery, deployment, and drift analysis jobs.
 
 ## Quick start (local, no Docker)
 
@@ -42,6 +49,14 @@ export NGFABRIC_SECRET_ENCRYPTION_KEY="<generated key>"
 alembic upgrade head
 python -m app.db.seed
 uvicorn app.main:app --reload
+```
+
+Celery worker (needed for discovery/deployment/drift jobs, requires Redis running locally):
+
+```bash
+cd backend
+source .venv/bin/activate
+celery -A app.workers.celery_app worker --loglevel=info
 ```
 
 Frontend:
@@ -62,34 +77,74 @@ export NGFABRIC_DATABASE_URL="postgresql+psycopg://ngfabric:ngfabric@localhost:5
 pytest
 ```
 
+95 tests cover every domain individually plus one full end-to-end acceptance test
+(`tests/test_acceptance.py`) that chains asset creation through discovery, topology, best
+practice findings, architecture design, configuration generation, approval, deployment,
+backup, versioning, drift detection, and audit as a single continuous workflow. Live device
+I/O (Netmiko/pywinrm) is exercised through a `FakeDriver` test double rather than real
+hardware; the driver interface itself (`app/drivers/base.py`) is what a real device
+integration would implement.
+
 ## Repository layout
 
 ```
 backend/app/
   core/        settings, JWT auth, AES-256-GCM secret encryption, error/response envelopes
   db/          SQLAlchemy session, declarative base, model registry, seed script
-  domains/     one package per bounded context (identity, assets, credentials, audit, ...)
+  domains/     one package per bounded context:
+               identity, assets, credentials, audit, discovery, topology, best_practice,
+               design, configuration, approval, deployment, backup, drift, reporting
+  drivers/     technology driver ABC + registry, and concrete drivers:
+               cisco_iosxe, fortios, windows_dns, windows_dhcp
   api/v1/      route aggregation, shared dependencies (auth, RBAC)
-  workers/     Celery app (job queue - populated as Discovery/Deployment/Backup land)
+  workers/     Celery app + tasks for discovery, deployment, and drift jobs
   alembic/     migrations
 
 frontend/src/
   app/         router
   components/  layout (sidebar, shell)
-  modules/     one package per sidebar section (auth, dashboard, assets, audit, ...)
+  modules/     one package per sidebar section:
+               auth, dashboard, assets, discovery, topology, validation, design,
+               configuration, deployment, drift, reports, audit
   hooks/       React Query hooks per domain
   services/    API client (axios, standard {success,data,meta} envelope, token refresh)
   stores/      Zustand auth store
 ```
 
-## What's implemented vs. scaffolded
+## What's implemented
 
-Implemented and tested: authentication (JWT access + refresh), RBAC (users, groups, roles,
-permissions), asset CRUD with duplicate detection and relationships, credential profiles with
-encrypted secrets (never returned by the API), hash-chained audit log, the standard API
-response/error envelope, and a working frontend against all of it.
+Every domain in the MVP scope (technical spec section 88) is implemented, tested, and wired
+into the frontend:
 
-Not yet implemented (see the technical spec's phased plan, section 127+): Discovery, Topology,
-Best Practice/Validation engines, Architecture Design, Configuration Builder/drivers, Approval
-workflow, Deployment workers, Backup, Drift, and Reports. The sidebar shows these as disabled
-placeholders so the full information architecture is visible.
+- **Identity & RBAC**: JWT access/refresh auth, users/groups/roles/permissions,
+  `require_permission()` enforcement, 10 seeded roles from Super Administrator to Viewer.
+- **Assets & Credentials**: asset CRUD with duplicate detection and relationships, encrypted
+  credential profiles (secrets never returned by the API).
+- **Discovery**: CSV-import and (driver-backed) network discovery jobs that reconcile
+  discovered devices against existing assets.
+- **Topology**: graph derived from assets and relationships, with manual link management.
+- **Architecture Validation**: a YAML-driven best-practice rule engine that evaluates asset
+  and configuration state and produces findings.
+- **Architecture Design**: design/version/component lifecycle with an approval flow, and the
+  ability to map best-practice findings to design components.
+- **Configuration Core**: a driver-based configuration builder (Cisco IOS-XE, FortiOS,
+  Windows DNS, Windows DHCP) with dependency-ordered generation, schema/capability
+  validation, and a desired-state diff engine (create/update/delete/no-change).
+- **Approval workflow**: submit-for-approval / approve / reject, with segregation of duties
+  (a job's creator cannot approve their own job).
+- **Deployment engine**: a full state machine (queued → precheck → backup → applying →
+  verifying → success, with dedicated failure states) that takes a pre-deployment backup,
+  applies the change through the asset's driver, verifies the result, and rolls back
+  automatically on failure. Per-asset resource locking prevents concurrent deployments.
+- **Backup**: on-demand and pre-deployment backups per asset, with checksums.
+- **Configuration versioning & drift**: successful, verified deployments are recorded as
+  configuration history; a drift job compares live device state against the latest recorded
+  version and can generate a remediation job to restore the desired state.
+- **Reporting**: asset inventory, technology coverage, and deployment outcome reports drawn
+  from the same data as the rest of the app (no separate reporting data path).
+- **Audit**: a hash-chained, immutable audit log covering every state-changing action above.
+
+The only sidebar sections not yet built out as standalone pages are a cross-asset "Backups &
+Configuration" list view (backup history is available per-asset on the Asset detail page; a
+dedicated cross-asset page would need a new list-all-backups endpoint) and a general
+"Settings" page (spec section 80), which is out of scope for this MVP.

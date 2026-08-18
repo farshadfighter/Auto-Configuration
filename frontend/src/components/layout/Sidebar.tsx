@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
 
-// Main sidebar per spec section 81. Sections beyond Phase 1 (Discovery, Topology, Design &
-// Configuration, Deployment, Backups, Drift, Reports) render as disabled placeholders so the
-// full information architecture is visible from the start.
+// Main sidebar per spec section 81. "Backups & Configuration" has no standalone top-level page
+// yet - backup history lives on each Asset's detail page instead, since there's no
+// list-all-backups-across-assets endpoint (add one here if that becomes worth a dedicated
+// page). "Settings" (spec section 80) is out of scope for this MVP.
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", enabled: true },
   { to: "/assets", label: "Assets", enabled: true },
