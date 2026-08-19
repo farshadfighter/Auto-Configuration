@@ -97,6 +97,34 @@ def test_deployment_rolls_back_on_apply_failure(client, admin_headers, approver_
     assert result["status"] == "rolled_back"
 
 
+def test_deployment_backup_connection_error_ends_at_backup_failed_not_a_crash(client, admin_headers, approver_headers, asset_type, monkeypatch, db_session):
+    from app.domains.deployment.models import ResourceLock
+
+    class ConnectRaisesDriver(FakeDriver):
+        def connect(self, *, host, port, username, password=None, **kwargs):
+            raise TimeoutError("device unreachable")
+
+    asset = _create_reachable_asset(client, admin_headers, asset_type, "dep-backup-crash")
+    job = _approved_job(client, admin_headers, approver_headers, asset, "Backup crash job")
+
+    fake = ConnectRaisesDriver()
+    monkeypatch.setattr("app.domains.deployment.service.get_driver", lambda tech: fake)
+    monkeypatch.setattr("app.domains.backup.service.get_driver", lambda tech: fake)
+
+    deployment = client.post("/api/v1/deployment/jobs", headers=admin_headers, json={"configuration_job_id": job["id"]}).json()["data"]
+    start = client.post(f"/api/v1/deployment/jobs/{deployment['id']}/start", headers=admin_headers)
+    assert start.status_code == 200
+
+    # A device connection failure while taking the pre-deployment backup must not crash the
+    # whole run (which would silently roll back the deployment's status trail and its
+    # resource lock via the worker) - it should land as an explicit backup failure.
+    result = client.get(f"/api/v1/deployment/jobs/{deployment['id']}", headers=admin_headers).json()["data"]
+    assert result["status"] == "backup_failed"
+
+    remaining_locks = db_session.query(ResourceLock).filter(ResourceLock.deployment_job_id == deployment["id"]).all()
+    assert remaining_locks == []
+
+
 def test_deployment_verify_exception_ends_at_verify_failed_not_a_crash(client, admin_headers, approver_headers, asset_type, monkeypatch, db_session):
     from app.domains.deployment.models import ResourceLock
 

@@ -57,6 +57,48 @@ def test_csv_import_creates_multiple_assets(client, admin_headers, asset_type):
     assert job["discovered_count"] == 2
 
 
+def test_manual_discovery_invalid_criticality_recorded_as_error_not_a_crash(client, admin_headers, asset_type):
+    response = client.post(
+        "/api/v1/discovery/jobs",
+        headers=admin_headers,
+        json={
+            "method": "manual",
+            "scope": {
+                "records": [
+                    {"name": "disc-good-crit", "asset_type_code": asset_type.code, "management_ip": "10.1.1.10"},
+                    {"name": "disc-bad-crit", "asset_type_code": asset_type.code, "management_ip": "10.1.1.11", "criticality": "urgent"},
+                ]
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    job = response.json()["data"]
+    assert job["status"] == "partial"
+    assert job["discovered_count"] == 1
+    assert job["failed_count"] == 1
+
+    errors = client.get(f"/api/v1/discovery/jobs/{job['id']}/errors", headers=admin_headers).json()["data"]
+    assert any("Invalid criticality" in e["message"] for e in errors)
+
+
+def test_manual_discovery_invalid_management_ip_recorded_as_error_not_a_crash(client, admin_headers, asset_type):
+    response = client.post(
+        "/api/v1/discovery/jobs",
+        headers=admin_headers,
+        json={
+            "method": "manual",
+            "scope": {"records": [{"name": "disc-bad-ip", "asset_type_code": asset_type.code, "management_ip": "not-an-ip"}]},
+        },
+    )
+    assert response.status_code == 201, response.text
+    job = response.json()["data"]
+    assert job["status"] == "failed"
+    assert job["failed_count"] == 1
+
+    errors = client.get(f"/api/v1/discovery/jobs/{job['id']}/errors", headers=admin_headers).json()["data"]
+    assert any("Invalid management_ip" in e["message"] for e in errors)
+
+
 def test_csv_import_ragged_row_recorded_as_error_not_a_crash(client, admin_headers, asset_type):
     # The second data row has an extra, unheaded column - csv.DictReader files that under
     # key None as a list rather than raising, and it must not crash the whole import.

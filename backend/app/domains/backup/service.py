@@ -55,11 +55,21 @@ def create_backup_from_live_device(
     password = credentials_service.resolve_secret(db, asset.credential_profile_id, "password")
 
     driver = get_driver(technology)
-    driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username or "", password=password)
     try:
+        driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username or "", password=password)
         content = driver.backup()
+    except AppError:
+        raise
+    except Exception as exc:
+        # A raw connection/timeout error here (not an AppError) must not escape as-is: the
+        # deployment pipeline's backup step only catches AppError, and an uncaught exception
+        # crashes the whole deployment run instead of landing as a clean BACKUP_FAILED state.
+        raise AppError(502, "DEVICE_CONNECTION_FAILED", f"Could not pull backup from device: {exc}") from exc
     finally:
-        driver.disconnect()
+        try:
+            driver.disconnect()
+        except Exception:
+            pass
 
     return create_backup(db, asset_id=asset_id, technology=technology, backup_type=backup_type, content=content, created_by=created_by)
 
@@ -85,11 +95,22 @@ def restore_backup(db: Session, backup_id: uuid.UUID) -> dict:
     password = credentials_service.resolve_secret(db, asset.credential_profile_id, "password")
 
     driver = get_driver(backup.technology)
-    driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username or "", password=password)
     try:
+        driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username or "", password=password)
         result = driver.rollback(backup.content)
+    except AppError:
+        raise
+    except Exception as exc:
+        # Same reasoning as create_backup_from_live_device: this runs from
+        # deployment/service.py's _rollback, which only catches AppError. A raw connection
+        # error here - the worst possible place for one, since this is the last line of
+        # defense after a failed apply - must not crash the whole rollback uncaught.
+        raise AppError(502, "DEVICE_CONNECTION_FAILED", f"Could not connect to device to restore backup: {exc}") from exc
     finally:
-        driver.disconnect()
+        try:
+            driver.disconnect()
+        except Exception:
+            pass
 
     if not result.success:
         raise AppError(502, "RESTORE_FAILED", result.error or "Restore failed", details={"output": result.output})
