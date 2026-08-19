@@ -2,6 +2,7 @@ import { Background, Controls, ReactFlow, type Edge, type Node, useEdgesState, u
 import "@xyflow/react/dist/style.css";
 import { useEffect, useState } from "react";
 import { useTopology, useUpdateTopologyLayout, useValidateTopology, type TopologyFinding } from "../../hooks/useTopology";
+import { getErrorMessage } from "../../services/api";
 
 function layoutGrid(nodeIds: string[]): Record<string, { x: number; y: number }> {
   const columns = Math.ceil(Math.sqrt(nodeIds.length || 1));
@@ -42,8 +43,12 @@ export function TopologyPage() {
   }, [graph, setNodes, setEdges]);
 
   async function handleValidate() {
-    const result = await validate.mutateAsync();
-    setFindings(result);
+    try {
+      const result = await validate.mutateAsync();
+      setFindings(result);
+    } catch {
+      // surfaced below via validate.isError
+    }
   }
 
   function handleNodeDragStop(_: unknown, node: Node) {
@@ -58,6 +63,9 @@ export function TopologyPage() {
           {validate.isPending ? "Validating..." : "Validate Topology"}
         </button>
       </div>
+
+      {validate.isError && <p className="form-error">{getErrorMessage(validate.error, "Validation failed")}</p>}
+      {updateLayout.isError && <p className="form-error">{getErrorMessage(updateLayout.error, "Could not save node position")}</p>}
 
       {isLoading && <p>Loading...</p>}
 

@@ -57,6 +57,29 @@ def test_csv_import_creates_multiple_assets(client, admin_headers, asset_type):
     assert job["discovered_count"] == 2
 
 
+def test_csv_import_ragged_row_recorded_as_error_not_a_crash(client, admin_headers, asset_type):
+    # The second data row has an extra, unheaded column - csv.DictReader files that under
+    # key None as a list rather than raising, and it must not crash the whole import.
+    csv_content = (
+        "name,asset_type_code,management_ip\n"
+        f"disc-csv-good,{asset_type.code},10.1.2.1\n"
+        f"disc-csv-ragged,{asset_type.code},10.1.2.2,extra-column\n"
+    )
+    response = client.post(
+        "/api/v1/discovery/jobs",
+        headers=admin_headers,
+        json={"method": "csv_import", "scope": {"csv_content": csv_content}},
+    )
+    assert response.status_code == 201
+    job = response.json()["data"]
+    assert job["status"] == "partial"
+    assert job["discovered_count"] == 1
+    assert job["failed_count"] == 1
+
+    errors = client.get(f"/api/v1/discovery/jobs/{job['id']}/errors", headers=admin_headers).json()["data"]
+    assert any("more columns than the header" in e["message"] for e in errors)
+
+
 def test_discovery_unknown_asset_type_is_recorded_as_error(client, admin_headers):
     response = client.post(
         "/api/v1/discovery/jobs",

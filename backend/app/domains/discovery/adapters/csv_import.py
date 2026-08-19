@@ -19,7 +19,23 @@ class CsvImportDiscoveryAdapter(LookupResolutionMixin, DiscoveryAdapter):
             return DiscoveryOutcome(
                 records=[DiscoveredRecord(target="", raw_data={}, error=f"CSV missing required columns: {missing}")]
             )
-        records = [self._normalize_row({k: (v or "").strip() for k, v in row.items()}) for row in reader]
+
+        column_count = len(reader.fieldnames)
+        records = []
+        for line_number, row in enumerate(reader, start=2):
+            if None in row:
+                # csv.DictReader files extra columns beyond the header under key None as a
+                # list - report the ragged row as a per-row error instead of crashing the
+                # whole import on a single malformed line.
+                records.append(
+                    DiscoveredRecord(
+                        target=(row.get("name") or "").strip(),
+                        raw_data={k: v for k, v in row.items() if k is not None},
+                        error=f"Row {line_number} has more columns than the header ({column_count} expected)",
+                    )
+                )
+                continue
+            records.append(self._normalize_row({k: (v or "").strip() for k, v in row.items()}))
         return DiscoveryOutcome(records=records)
 
     def normalize(self, record: DiscoveredRecord) -> DiscoveredRecord:

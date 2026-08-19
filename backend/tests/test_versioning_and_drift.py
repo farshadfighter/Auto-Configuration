@@ -116,8 +116,82 @@ def test_restore_desired_creates_remediation_job(client, admin_headers, approver
     new_job = client.get(f"/api/v1/configuration/jobs/{new_job_id}", headers=admin_headers).json()["data"]
     assert new_job["status"] == "draft"
 
+    # Creating the remediation job doesn't fix anything by itself - the finding must stay
+    # actionable (status "new") until that job is actually deployed and verified.
+    finding_after_creation = client.get(f"/api/v1/drift/findings/{finding['id']}", headers=admin_headers).json()["data"]
+    assert finding_after_creation["status"] == "new"
+
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/generate", headers=admin_headers)
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/validate", headers=admin_headers)
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/submit-approval", headers=admin_headers)
+    requests = client.get("/api/v1/approval/requests", headers=admin_headers).json()["data"]
+    request = next(r for r in requests if r["configuration_job_id"] == new_job_id)
+    client.post(f"/api/v1/approval/requests/{request['id']}/approve", headers=approver_headers, json={})
+
+    remediation_deployment = client.post(
+        "/api/v1/deployment/jobs", headers=admin_headers, json={"configuration_job_id": new_job_id}
+    ).json()["data"]
+    client.post(f"/api/v1/deployment/jobs/{remediation_deployment['id']}/start", headers=admin_headers)
+    remediation_deployment_after = client.get(
+        f"/api/v1/deployment/jobs/{remediation_deployment['id']}", headers=admin_headers
+    ).json()["data"]
+    assert remediation_deployment_after["status"] == "success"
+
+    finding_after_deploy = client.get(f"/api/v1/drift/findings/{finding['id']}", headers=admin_headers).json()["data"]
+    assert finding_after_deploy["status"] == "remediated"
+
+
+def test_failed_remediation_deployment_leaves_finding_actionable(client, admin_headers, approver_headers, asset_type, monkeypatch):
+    asset, job, deployment, fake = _successful_deployment(client, admin_headers, approver_headers, asset_type, monkeypatch, "remediate-fail-asset")
+    fake.get_current_state = lambda object_type, parameters: {"vlan_id": parameters["vlan_id"], "name": "Drifted"}
+    monkeypatch.setattr("app.domains.drift.service.get_driver", lambda tech: fake)
+    client.post("/api/v1/drift/analyze", headers=admin_headers)
+    finding = client.get("/api/v1/drift/findings", headers=admin_headers).json()["data"][0]
+
+    new_job_id = client.post(
+        f"/api/v1/drift/findings/{finding['id']}/restore-desired", headers=admin_headers
+    ).json()["data"]["configuration_job_id"]
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/generate", headers=admin_headers)
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/validate", headers=admin_headers)
+    client.post(f"/api/v1/configuration/jobs/{new_job_id}/submit-approval", headers=admin_headers)
+    requests = client.get("/api/v1/approval/requests", headers=admin_headers).json()["data"]
+    request = next(r for r in requests if r["configuration_job_id"] == new_job_id)
+    client.post(f"/api/v1/approval/requests/{request['id']}/approve", headers=approver_headers, json={})
+
+    # The remediation deployment itself fails (e.g. the device rejects the change).
+    fake.verify_matches = False
+    remediation_deployment = client.post(
+        "/api/v1/deployment/jobs", headers=admin_headers, json={"configuration_job_id": new_job_id}
+    ).json()["data"]
+    client.post(f"/api/v1/deployment/jobs/{remediation_deployment['id']}/start", headers=admin_headers)
+    remediation_deployment_after = client.get(
+        f"/api/v1/deployment/jobs/{remediation_deployment['id']}", headers=admin_headers
+    ).json()["data"]
+    assert remediation_deployment_after["status"] == "verify_failed"
+
+    # The still-drifted asset must not be hidden behind a "remediated" status it never earned.
     finding_after = client.get(f"/api/v1/drift/findings/{finding['id']}", headers=admin_headers).json()["data"]
-    assert finding_after["status"] == "remediated"
+    assert finding_after["status"] == "new"
+
+
+def test_drift_run_survives_one_assets_broken_credentials(client, admin_headers, approver_headers, asset_type, monkeypatch):
+    # An asset whose credential profile is missing the "password" secret must not crash the
+    # whole drift run - it should be skipped, and the run must still finish as "success"
+    # rather than getting stuck at "running" forever.
+    asset, job, deployment, fake = _successful_deployment(client, admin_headers, approver_headers, asset_type, monkeypatch, "broken-cred-asset")
+    monkeypatch.setattr("app.domains.drift.service.get_driver", lambda tech: fake)
+
+    empty_credential = client.post(
+        "/api/v1/credentials",
+        headers=admin_headers,
+        json={"name": "no-password-cred", "credential_type": "username_password", "username": "admin", "secrets": {}},
+    ).json()["data"]
+    client.put(f"/api/v1/assets/{asset['id']}", headers=admin_headers, json={"credential_profile_id": empty_credential["id"]})
+
+    run = client.post("/api/v1/drift/analyze", headers=admin_headers)
+    assert run.status_code == 201, run.text
+    assert run.json()["data"]["status"] == "success"
+    assert run.json()["data"]["drift_found_count"] == 0
 
 
 def test_viewer_cannot_run_drift_analysis(client, viewer_headers):

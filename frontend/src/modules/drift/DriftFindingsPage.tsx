@@ -22,8 +22,12 @@ export function DriftFindingsPage() {
   const [reason, setReason] = useState("");
 
   async function handleRestore(id: string) {
-    const result = await restoreDesired.mutateAsync(id);
-    navigate(`/design-configuration/jobs/${result.configuration_job_id}`);
+    try {
+      const result = await restoreDesired.mutateAsync(id);
+      navigate(`/design-configuration/jobs/${result.configuration_job_id}`);
+    } catch {
+      // surfaced below via restoreDesired.isError
+    }
   }
 
   return (
@@ -35,6 +39,9 @@ export function DriftFindingsPage() {
         </button>
       </div>
       {runAnalysis.isError && <p className="form-error">{getErrorMessage(runAnalysis.error)}</p>}
+      {acceptCurrent.isError && <p className="form-error">{getErrorMessage(acceptCurrent.error, "Could not accept current state")}</p>}
+      {ignoreDrift.isError && <p className="form-error">{getErrorMessage(ignoreDrift.error, "Could not ignore finding")}</p>}
+      {restoreDesired.isError && <p className="form-error">{getErrorMessage(restoreDesired.error, "Could not create remediation job")}</p>}
 
       <div style={{ marginBottom: 12 }}>
         <label>

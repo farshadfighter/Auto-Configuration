@@ -82,3 +82,20 @@ export function useCreateAsset() {
     },
   });
 }
+
+export interface AssetType {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+}
+
+export function useAssetTypes() {
+  return useQuery({
+    queryKey: ["asset-types"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<AssetType[]>>("/asset-types");
+      return data.data;
+    },
+  });
+}

@@ -37,7 +37,7 @@ export function DiscoveryJobsPage() {
           style={{ width: "100%", maxWidth: 640, fontFamily: "monospace" }}
         />
         <div style={{ marginTop: 8 }}>
-          <button onClick={() => createJob.mutate(csvContent)} disabled={createJob.isPending}>
+          <button onClick={() => createJob.mutate(csvContent)} disabled={!csvContent.trim() || createJob.isPending}>
             {createJob.isPending ? "Submitting..." : "Run CSV Discovery"}
           </button>
         </div>

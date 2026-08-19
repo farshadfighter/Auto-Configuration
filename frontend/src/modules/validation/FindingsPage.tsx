@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAcceptFinding, useFindings, useIgnoreFinding, useRunAnalysis } from "../../hooks/useBestPractice";
+import { getErrorMessage } from "../../services/api";
 
 const STATUS_BADGE: Record<string, string> = {
   new: "badge-medium",
@@ -34,6 +35,9 @@ export function FindingsPage() {
           {runAnalysis.isPending ? "Analyzing..." : "Run Best Practice Analysis"}
         </button>
       </div>
+      {runAnalysis.isError && <p className="form-error">{getErrorMessage(runAnalysis.error)}</p>}
+      {acceptFinding.isError && <p className="form-error">{getErrorMessage(acceptFinding.error, "Could not accept finding")}</p>}
+      {ignoreFinding.isError && <p className="form-error">{getErrorMessage(ignoreFinding.error, "Could not ignore finding")}</p>}
 
       <div style={{ marginBottom: 12 }}>
         <label>

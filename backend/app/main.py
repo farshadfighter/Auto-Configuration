@@ -9,6 +9,12 @@ from app.db.session import SessionLocal
 
 settings = get_settings()
 
+if settings.environment != "development" and settings.jwt_secret_key == "change-me-in-production":
+    raise RuntimeError(
+        "NGFABRIC_JWT_SECRET_KEY is still set to its insecure default. "
+        "Set a unique secret before running outside development."
+    )
+
 app = FastAPI(title=settings.app_name, version="1.0.0")
 
 app.add_middleware(

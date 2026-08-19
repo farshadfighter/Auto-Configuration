@@ -10,11 +10,26 @@ from app.domains.assets.schemas import (
     AssetOut,
     AssetRelationshipCreate,
     AssetRelationshipOut,
+    AssetTypeCreate,
+    AssetTypeOut,
     AssetUpdate,
 )
 from app.domains.audit.service import record_audit_event
 
 router = APIRouter()
+
+
+@router.get("/asset-types", response_model=None)
+def list_asset_types(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    asset_types = service.list_asset_types(db)
+    return success([AssetTypeOut.model_validate(t).model_dump(mode="json") for t in asset_types])
+
+
+@router.post("/asset-types", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_asset_type(payload: AssetTypeCreate, db: DbSession, current_user=Depends(require_permission("asset.create"))):
+    asset_type = service.create_asset_type(db, code=payload.code, name=payload.name, category=payload.category)
+    db.commit()
+    return success(AssetTypeOut.model_validate(asset_type).model_dump(mode="json"))
 
 
 @router.get("/assets", response_model=None)

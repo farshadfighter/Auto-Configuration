@@ -18,7 +18,22 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.db.models_registry import *  # noqa: F401,F403
 from app.db.session import SessionLocal
+from app.domains.assets.models import AssetType
 from app.domains.identity.models import Permission, Role, User
+
+# Baseline asset type catalog - without at least these, neither manual asset creation nor
+# CSV discovery import (which resolves asset_type_code -> AssetType) has anything to point
+# at in a freshly-seeded database.
+DEFAULT_ASSET_TYPES: list[tuple[str, str, str]] = [
+    ("router", "Router", "network"),
+    ("switch", "Switch", "network"),
+    ("firewall", "Firewall", "network"),
+    ("load_balancer", "Load Balancer", "network"),
+    ("server", "Server", "compute"),
+    ("domain_controller", "Domain Controller", "microsoft"),
+    ("dns_server", "DNS Server", "microsoft"),
+    ("dhcp_server", "DHCP Server", "microsoft"),
+]
 
 # Permission catalog - resource.action per spec section 75. Extend as new domains land.
 DEFAULT_PERMISSIONS: list[tuple[str, str]] = [
@@ -151,6 +166,14 @@ def seed_roles(db: Session, permissions: dict[str, Permission]) -> None:
     db.flush()
 
 
+def seed_asset_types(db: Session) -> None:
+    existing = {t.code for t in db.scalars(select(AssetType))}
+    for code, name, category in DEFAULT_ASSET_TYPES:
+        if code not in existing:
+            db.add(AssetType(code=code, name=name, category=category))
+    db.flush()
+
+
 def seed_bootstrap_admin(db: Session) -> None:
     username = os.environ.get("NGFABRIC_SEED_ADMIN_USERNAME", "admin")
     if db.scalar(select(User).where(User.username == username)):
@@ -179,6 +202,7 @@ def run() -> None:
     try:
         permissions = seed_permissions(db)
         seed_roles(db, permissions)
+        seed_asset_types(db)
         seed_bootstrap_admin(db)
         db.commit()
         print("[seed] Done.")

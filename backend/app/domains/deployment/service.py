@@ -14,6 +14,7 @@ from app.domains.configuration.models import ConfigurationJob, ConfigurationObje
 from app.domains.configuration.models import JobStatus as ConfigJobStatus
 from app.domains.credentials import service as credentials_service
 from app.domains.deployment.models import DeploymentEvent, DeploymentJob, DeploymentResult, DeploymentStatus, DeploymentTarget, ResourceLock
+from app.domains.drift import service as drift_service
 from app.drivers.base import Operation
 from app.drivers.registry import get_driver
 
@@ -86,6 +87,17 @@ def _release_locks(db: Session, deployment_id: uuid.UUID) -> None:
     db.flush()
 
 
+def _renew_locks(db: Session, deployment_id: uuid.UUID) -> None:
+    """Pushes each held lock's expiry out another TTL window. Called at each phase
+    transition so a deployment that's still actively running - just slow - never has its
+    lock treated as orphaned and stolen by a concurrent deployment on the same asset."""
+    now = utcnow()
+    locks = list(db.scalars(select(ResourceLock).where(ResourceLock.deployment_job_id == deployment_id)))
+    for lock in locks:
+        lock.expires_at = now + timedelta(minutes=LOCK_TTL_MINUTES)
+    db.flush()
+
+
 def _fail(db: Session, deployment: DeploymentJob, status: DeploymentStatus, message: str) -> DeploymentJob:
     deployment.status = status
     deployment.completed_at = utcnow()
@@ -124,7 +136,7 @@ def execute_deployment(db: Session, deployment_id: uuid.UUID) -> DeploymentJob:
 
     deployment.status = DeploymentStatus.BACKUP
     _log_event(db, deployment.id, "backup_started", "Taking pre-deployment backup")
-    db.flush()
+    _renew_locks(db, deployment.id)
 
     backups_by_asset = {}
     for asset_id in asset_ids:
@@ -139,7 +151,7 @@ def execute_deployment(db: Session, deployment_id: uuid.UUID) -> DeploymentJob:
 
     deployment.status = DeploymentStatus.APPLYING
     _log_event(db, deployment.id, "apply_started", f"Applying {len(objects)} configuration object(s)")
-    db.flush()
+    _renew_locks(db, deployment.id)
 
     connections: dict[uuid.UUID, object] = {}
     failed_object = None
@@ -174,12 +186,23 @@ def execute_deployment(db: Session, deployment_id: uuid.UUID) -> DeploymentJob:
 
     deployment.status = DeploymentStatus.VERIFYING
     _log_event(db, deployment.id, "verification_started", "Verifying applied state")
-    db.flush()
+    _renew_locks(db, deployment.id)
 
     all_verified = True
     for obj in objects:
         driver = connections[obj.asset_id]
-        verify_result = driver.verify(obj.object_type, obj.parameters)
+        try:
+            verify_result = driver.verify(obj.object_type, obj.parameters)
+        except Exception as exc:
+            # The device already has the new config applied (apply succeeded above) - a
+            # dropped session here means we can't confirm it, not that it failed. Treat as
+            # an unconfirmed verification rather than letting the exception escape: an
+            # uncaught exception here would propagate to the Celery task's db.rollback(),
+            # silently wiping this deployment's whole status trail and its resource locks
+            # while the live device has already been changed.
+            _log_event(db, deployment.id, "verify_error", f"{obj.object_type} on {obj.asset_id}: {exc}")
+            all_verified = False
+            continue
         result_row = db.scalar(
             select(DeploymentResult).where(DeploymentResult.deployment_job_id == deployment.id, DeploymentResult.configuration_object_id == obj.id)
         )
@@ -202,6 +225,7 @@ def execute_deployment(db: Session, deployment_id: uuid.UUID) -> DeploymentJob:
     deployment.completed_at = utcnow()
     _log_event(db, deployment.id, "completed", "Deployment succeeded")
     _release_locks(db, deployment.id)
+    drift_service.mark_remediated_by_configuration_job(db, deployment.configuration_job_id)
     db.flush()
     return deployment
 

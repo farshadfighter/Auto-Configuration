@@ -41,58 +41,66 @@ def get_run(db: Session, run_id: uuid.UUID) -> DriftRun:
 def execute_drift_run(db: Session, run_id: uuid.UUID) -> DriftRun:
     run = get_run(db, run_id)
 
-    assets_checked = 0
-    drift_found = 0
-    for asset_id, technology, object_type in _baseline_keys(db):
-        asset = db.get(Asset, asset_id)
-        if not asset or not asset.management_ip or not asset.credential_profile_id:
-            continue
-        expected = configuration_service.get_latest_version_state(db, asset_id, technology, object_type)
-        if expected is None:
-            continue
+    try:
+        assets_checked = 0
+        drift_found = 0
+        for asset_id, technology, object_type in _baseline_keys(db):
+            asset = db.get(Asset, asset_id)
+            if not asset or not asset.management_ip or not asset.credential_profile_id:
+                continue
+            expected = configuration_service.get_latest_version_state(db, asset_id, technology, object_type)
+            if expected is None:
+                continue
 
-        assets_checked += 1
-        username = credentials_service.get_credential_profile(db, asset.credential_profile_id).username or ""
-        password = credentials_service.resolve_secret(db, asset.credential_profile_id, "password")
-        driver = get_driver(technology)
-        try:
-            driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username, password=password)
-            actual = driver.get_current_state(object_type, expected)
-        except Exception:
-            continue
-        finally:
+            assets_checked += 1
+            driver = None
             try:
-                driver.disconnect()
+                username = credentials_service.get_credential_profile(db, asset.credential_profile_id).username or ""
+                password = credentials_service.resolve_secret(db, asset.credential_profile_id, "password")
+                driver = get_driver(technology)
+                driver.connect(host=str(asset.management_ip), port=asset.management_port or 22, username=username, password=password)
+                actual = driver.get_current_state(object_type, expected)
             except Exception:
-                pass
+                continue
+            finally:
+                if driver is not None:
+                    try:
+                        driver.disconnect()
+                    except Exception:
+                        pass
 
-        diff = diff_fields(actual, expected)
-        if not diff:
-            continue
+            diff = diff_fields(actual, expected)
+            if not diff:
+                continue
 
-        severity = DriftSeverity.HIGH if len(diff) >= 3 else DriftSeverity.MEDIUM if len(diff) >= 2 else DriftSeverity.LOW
-        db.add(
-            DriftResult(
-                run_id=run.id,
-                asset_id=asset_id,
-                technology=technology,
-                object_type=object_type,
-                expected_state=expected,
-                actual_state=actual or {},
-                diff=diff,
-                severity=severity,
-                status=DriftStatus.NEW,
-                detected_at=utcnow(),
+            severity = DriftSeverity.HIGH if len(diff) >= 3 else DriftSeverity.MEDIUM if len(diff) >= 2 else DriftSeverity.LOW
+            db.add(
+                DriftResult(
+                    run_id=run.id,
+                    asset_id=asset_id,
+                    technology=technology,
+                    object_type=object_type,
+                    expected_state=expected,
+                    actual_state=actual or {},
+                    diff=diff,
+                    severity=severity,
+                    status=DriftStatus.NEW,
+                    detected_at=utcnow(),
+                )
             )
-        )
-        drift_found += 1
+            drift_found += 1
 
-    run.assets_checked = assets_checked
-    run.drift_found_count = drift_found
-    run.status = DriftRunStatus.SUCCESS
-    run.completed_at = utcnow()
-    db.flush()
-    return run
+        run.assets_checked = assets_checked
+        run.drift_found_count = drift_found
+        run.status = DriftRunStatus.SUCCESS
+        run.completed_at = utcnow()
+        db.flush()
+        return run
+    except Exception:
+        run.status = DriftRunStatus.FAILED
+        run.completed_at = utcnow()
+        db.commit()
+        raise
 
 
 def list_drift_results(db: Session, *, status: str | None = None) -> list[DriftResult]:
@@ -156,6 +164,26 @@ def create_remediation_job(db: Session, drift_id: uuid.UUID, created_by: uuid.UU
             "source": "drift_remediation",
         },
     )
-    drift.status = DriftStatus.REMEDIATED
+    # Stays NEW (not REMEDIATED) until the remediation job actually deploys successfully -
+    # see mark_remediated_by_configuration_job, called from deployment/service.py on success.
+    # This keeps the finding actionable (and visible under the "new" filter) if the job is
+    # later rejected in approval or fails during deployment, instead of hiding a still-drifted
+    # asset behind a status that was never earned.
+    drift.remediation_job_id = job.id
     db.flush()
     return job.id
+
+
+def mark_remediated_by_configuration_job(db: Session, configuration_job_id: uuid.UUID) -> None:
+    """Called after a configuration job's deployment fully succeeds - flips any drift finding
+    that job was created to remediate over to REMEDIATED."""
+    results = list(
+        db.scalars(
+            select(DriftResult).where(
+                DriftResult.remediation_job_id == configuration_job_id, DriftResult.status == DriftStatus.NEW
+            )
+        )
+    )
+    for result in results:
+        result.status = DriftStatus.REMEDIATED
+    db.flush()

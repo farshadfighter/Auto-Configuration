@@ -23,3 +23,8 @@ class ConflictError(AppError):
 class ValidationAppError(AppError):
     def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
         super().__init__(422, code, message, details)
+
+
+class LockedError(AppError):
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
+        super().__init__(423, code, message, details)

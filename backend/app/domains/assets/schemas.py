@@ -72,6 +72,20 @@ class AssetOut(AssetBase):
     discovery_source: str | None = None
 
 
+class AssetTypeCreate(BaseModel):
+    code: str
+    name: str
+    category: str | None = None
+
+
+class AssetTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
+    category: str | None = None
+
+
 class AssetRelationshipCreate(BaseModel):
     source_asset_id: uuid.UUID
     target_asset_id: uuid.UUID

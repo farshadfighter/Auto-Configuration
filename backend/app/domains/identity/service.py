@@ -1,10 +1,15 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.errors import LockedError
 from app.core.security import hash_password, verify_password
 from app.domains.identity.models import Permission, Role, User
+
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = timedelta(minutes=15)
 
 
 def get_user_by_username(db: Session, username: str) -> User | None:
@@ -19,8 +24,19 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
     user = get_user_by_username(db, username)
     if not user or not user.is_active or not user.hashed_password:
         return None
+    now = datetime.now(timezone.utc)
+    if user.locked_until and user.locked_until > now:
+        raise LockedError(
+            "ACCOUNT_LOCKED",
+            "Account is temporarily locked due to repeated failed login attempts. Try again later.",
+        )
     if not verify_password(password, user.hashed_password):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+            user.locked_until = now + LOCKOUT_DURATION
         return None
+    user.failed_login_attempts = 0
+    user.locked_until = None
     return user
 
 

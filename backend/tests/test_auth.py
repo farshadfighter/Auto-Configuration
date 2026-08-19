@@ -18,6 +18,37 @@ def test_login_unknown_user(client):
     assert response.status_code == 401
 
 
+def test_login_locks_account_after_repeated_failures(client, admin_user):
+    for _ in range(5):
+        response = client.post("/api/v1/auth/login", json={"username": "admin", "password": "wrong"})
+        assert response.status_code == 401
+
+    locked = client.post("/api/v1/auth/login", json={"username": "admin", "password": "wrong"})
+    assert locked.status_code == 423
+    assert locked.json()["error"]["code"] == "ACCOUNT_LOCKED"
+
+    still_locked_with_correct_password = client.post(
+        "/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"}
+    )
+    assert still_locked_with_correct_password.status_code == 423
+
+
+def test_successful_login_resets_failed_attempt_counter(client, admin_user):
+    for _ in range(3):
+        response = client.post("/api/v1/auth/login", json={"username": "admin", "password": "wrong"})
+        assert response.status_code == 401
+
+    ok = client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"})
+    assert ok.status_code == 200
+
+    for _ in range(4):
+        response = client.post("/api/v1/auth/login", json={"username": "admin", "password": "wrong"})
+        assert response.status_code == 401
+
+    still_ok = client.post("/api/v1/auth/login", json={"username": "admin", "password": "AdminPass123!"})
+    assert still_ok.status_code == 200
+
+
 def test_me_requires_token(client):
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 401

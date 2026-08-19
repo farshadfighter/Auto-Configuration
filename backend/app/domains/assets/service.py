@@ -5,11 +5,24 @@ from sqlalchemy.dialects.postgresql import INET, MACADDR
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
-from app.domains.assets.models import Asset, AssetRelationship
+from app.domains.assets.models import Asset, AssetRelationship, AssetType
 
 
 def _generate_asset_code() -> str:
     return f"AST-{uuid.uuid4().hex[:8].upper()}"
+
+
+def list_asset_types(db: Session) -> list[AssetType]:
+    return list(db.scalars(select(AssetType).order_by(AssetType.name)))
+
+
+def create_asset_type(db: Session, *, code: str, name: str, category: str | None) -> AssetType:
+    if db.scalar(select(AssetType).where(AssetType.code == code)):
+        raise ConflictError("ASSET_TYPE_CODE_EXISTS", f"Asset type code '{code}' already exists")
+    asset_type = AssetType(code=code, name=name, category=category)
+    db.add(asset_type)
+    db.flush()
+    return asset_type
 
 
 def find_duplicate(

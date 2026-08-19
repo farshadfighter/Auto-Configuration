@@ -57,3 +57,6 @@ class DriftResult(UUIDPKMixin, Base):
     status: Mapped[DriftStatus] = mapped_column(Enum(DriftStatus, name="drift_status", values_callable=_enum_values), default=DriftStatus.NEW)
     ignore_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    remediation_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("configuration_jobs.id", ondelete="SET NULL"), nullable=True
+    )

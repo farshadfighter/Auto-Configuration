@@ -5,6 +5,7 @@ import { useConfigurationJobs, useCreateConfigurationJob } from "../../hooks/use
 const STATUS_BADGE: Record<string, string> = {
   draft: "badge-medium",
   generated: "badge-medium",
+  validating: "badge-medium",
   validated: "badge-low",
   pending_approval: "badge-medium",
   approved: "badge-low",

@@ -116,12 +116,16 @@ frontend/src/
 Every domain in the MVP scope (technical spec section 88) is implemented, tested, and wired
 into the frontend:
 
-- **Identity & RBAC**: JWT access/refresh auth, users/groups/roles/permissions,
-  `require_permission()` enforcement, 10 seeded roles from Super Administrator to Viewer.
-- **Assets & Credentials**: asset CRUD with duplicate detection and relationships, encrypted
+- **Identity & RBAC**: JWT access/refresh auth with a login lockout after 5 failed attempts,
+  users/groups/roles/permissions, `require_permission()` enforcement, 10 seeded roles from
+  Super Administrator to Viewer.
+- **Assets & Credentials**: asset CRUD (with a UI form, not just API/CSV) with duplicate
+  detection and relationships, a seeded asset type catalog (`/asset-types`), and encrypted
   credential profiles (secrets never returned by the API).
-- **Discovery**: CSV-import and (driver-backed) network discovery jobs that reconcile
-  discovered devices against existing assets.
+- **Discovery**: CSV-import discovery jobs that reconcile discovered devices against existing
+  assets. Manual entry is also supported at the API level. Live network scan/SNMP/NETCONF
+  discovery methods are modeled (`DiscoveryMethod` enum, driver-agnostic adapter interface)
+  but not implemented in this MVP - selecting one fails cleanly rather than crashing.
 - **Topology**: graph derived from assets and relationships, with manual link management.
 - **Architecture Validation**: a YAML-driven best-practice rule engine that evaluates asset
   and configuration state and produces findings.

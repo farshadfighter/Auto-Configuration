@@ -1,3 +1,18 @@
+def test_asset_type_create_and_list(client, admin_headers):
+    create = client.post(
+        "/api/v1/asset-types", headers=admin_headers, json={"code": "test-type", "name": "Test Type", "category": "test"}
+    )
+    assert create.status_code == 201, create.text
+
+    duplicate = client.post(
+        "/api/v1/asset-types", headers=admin_headers, json={"code": "test-type", "name": "Test Type Again"}
+    )
+    assert duplicate.status_code == 409
+
+    listed = client.get("/api/v1/asset-types", headers=admin_headers).json()["data"]
+    assert any(t["code"] == "test-type" for t in listed)
+
+
 def test_create_and_get_asset(client, admin_headers, asset_type):
     create = client.post(
         "/api/v1/assets",

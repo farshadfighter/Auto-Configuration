@@ -30,6 +30,7 @@ export function useApproveRequest(jobId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["approval", "requests", "job", jobId] });
       queryClient.invalidateQueries({ queryKey: ["configuration", "jobs", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["configuration", "jobs"] });
     },
   });
 }
@@ -43,6 +44,7 @@ export function useRejectRequest(jobId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["approval", "requests", "job", jobId] });
       queryClient.invalidateQueries({ queryKey: ["configuration", "jobs", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["configuration", "jobs"] });
     },
   });
 }

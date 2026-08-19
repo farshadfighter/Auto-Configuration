@@ -69,6 +69,15 @@ export function ConfigurationJobDetailPage() {
     }
   }
 
+  async function handleCreateDeployment() {
+    try {
+      const deployment = await createDeployment.mutateAsync(job!.id);
+      navigate(`/deployment/jobs/${deployment.id}`);
+    } catch {
+      // surfaced below via createDeployment.isError
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -92,13 +101,7 @@ export function ConfigurationJobDetailPage() {
             </button>
           )}
           {job.status === "approved" && (
-            <button
-              onClick={async () => {
-                const deployment = await createDeployment.mutateAsync(job.id);
-                navigate(`/deployment/jobs/${deployment.id}`);
-              }}
-              disabled={createDeployment.isPending}
-            >
+            <button onClick={handleCreateDeployment} disabled={createDeployment.isPending}>
               Create Deployment
             </button>
           )}
@@ -110,6 +113,11 @@ export function ConfigurationJobDetailPage() {
         Status: <span className="badge badge-medium">{job.status}</span>{" "}
         {job.risk_level && <span className={`badge badge-${job.risk_level}`}>risk: {job.risk_level}</span>}
       </p>
+
+      {generateJob.isError && <p className="form-error">{getErrorMessage(generateJob.error, "Generate failed")}</p>}
+      {validateJob.isError && <p className="form-error">{getErrorMessage(validateJob.error, "Validate failed")}</p>}
+      {submitApproval.isError && <p className="form-error">{getErrorMessage(submitApproval.error, "Submit for approval failed")}</p>}
+      {createDeployment.isError && <p className="form-error">{getErrorMessage(createDeployment.error, "Could not create deployment")}</p>}
 
       {job.status === "pending_approval" && approvalRequest && approvalRequest.status === "pending" && (
         <section style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>
@@ -182,6 +190,7 @@ export function ConfigurationJobDetailPage() {
               Add Object
             </button>
           </div>
+          {addObject.isError && <p className="form-error">{getErrorMessage(addObject.error, "Could not add object")}</p>}
         </section>
       )}
 

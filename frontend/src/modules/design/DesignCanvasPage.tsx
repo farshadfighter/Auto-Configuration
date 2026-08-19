@@ -9,6 +9,7 @@ import {
   useDesign,
   useVersionGraph,
 } from "../../hooks/useDesigns";
+import { getErrorMessage } from "../../services/api";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "badge-medium",
@@ -76,27 +77,35 @@ export function DesignCanvasPage() {
         </div>
       </div>
 
+      {approveDesign.isError && <p className="form-error">{getErrorMessage(approveDesign.error, "Could not approve design")}</p>}
+      {createNewVersion.isError && (
+        <p className="form-error">{getErrorMessage(createNewVersion.error, "Could not create new version")}</p>
+      )}
+
       {isDraft && (
-        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <select value={componentType} onChange={(e) => setComponentType(e.target.value)}>
-            <option value="router">Router</option>
-            <option value="switch">Switch</option>
-            <option value="firewall">Firewall</option>
-            <option value="server">Server</option>
-            <option value="domain_controller">Domain Controller</option>
-            <option value="zone">Zone</option>
-          </select>
-          <input placeholder="Component name" value={componentName} onChange={(e) => setComponentName(e.target.value)} />
-          <button
-            onClick={() => {
-              if (!componentName.trim()) return;
-              addComponent.mutate({ component_type: componentType, name: componentName });
-              setComponentName("");
-            }}
-            disabled={!componentName.trim()}
-          >
-            Add Component
-          </button>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select value={componentType} onChange={(e) => setComponentType(e.target.value)}>
+              <option value="router">Router</option>
+              <option value="switch">Switch</option>
+              <option value="firewall">Firewall</option>
+              <option value="server">Server</option>
+              <option value="domain_controller">Domain Controller</option>
+              <option value="zone">Zone</option>
+            </select>
+            <input placeholder="Component name" value={componentName} onChange={(e) => setComponentName(e.target.value)} />
+            <button
+              onClick={() => {
+                if (!componentName.trim()) return;
+                addComponent.mutate({ component_type: componentType, name: componentName });
+                setComponentName("");
+              }}
+              disabled={!componentName.trim()}
+            >
+              Add Component
+            </button>
+          </div>
+          {addComponent.isError && <p className="form-error">{getErrorMessage(addComponent.error, "Could not add component")}</p>}
         </div>
       )}
 
