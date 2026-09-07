@@ -35,6 +35,22 @@ class ManagedStatus(str, enum.Enum):
     PENDING = "pending"
 
 
+class SafePin(str, enum.Enum):
+    """Cisco SAFE-inspired 'Place in the Network' classification, used by the architecture
+    recommendation engine (app/domains/architecture_recommendation) to group assets into a
+    reference topology. User-assigned; not inferred automatically."""
+
+    INTERNET_EDGE = "internet_edge"
+    WAN = "wan"
+    CAMPUS_CORE = "campus_core"
+    CAMPUS_DISTRIBUTION = "campus_distribution"
+    CAMPUS_ACCESS = "campus_access"
+    DATA_CENTER = "data_center"
+    BRANCH = "branch"
+    CLOUD = "cloud"
+    MANAGEMENT = "management"
+
+
 # ---- Lookup / reference tables -------------------------------------------------
 
 
@@ -156,6 +172,10 @@ class Asset(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("credential_profiles.id"), nullable=True
     )
     discovery_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    safe_pin: Mapped[SafePin | None] = mapped_column(
+        Enum(SafePin, name="safe_pin", values_callable=_enum_values), nullable=True
+    )
 
     asset_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 

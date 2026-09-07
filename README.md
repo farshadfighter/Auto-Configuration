@@ -131,6 +131,14 @@ into the frontend:
   and configuration state and produces findings.
 - **Architecture Design**: design/version/component lifecycle with an approval flow, and the
   ability to map best-practice findings to design components.
+- **Architecture Recommendation**: generates a reference architecture design from the current
+  asset inventory, structured around a SAFE-inspired Places-in-the-Network model (Internet
+  Edge, WAN, Campus Core/Distribution/Access, Data Center, Branch, Cloud, Management). Assets
+  are manually classified by zone (`Asset.safe_pin`); the generated diagram shows classified
+  assets as real components and unmet recommended roles (e.g. a PIN with no firewall) as
+  dashed placeholders, so gaps are visible directly in the canvas. This is an internally
+  authored approximation inspired by the publicly-documented SAFE PIN concept, not a
+  reproduction of Cisco's proprietary architecture guides.
 - **Configuration Core**: a driver-based configuration builder (Cisco IOS-XE, FortiOS,
   Windows DNS, Windows DHCP) with dependency-ordered generation, schema/capability
   validation, and a desired-state diff engine (create/update/delete/no-change).

@@ -1,16 +1,28 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useGenerateSafeRecommendation } from "../../hooks/useArchitectureRecommendation";
 import { useCreateDesign, useDesigns } from "../../hooks/useDesigns";
+import { getErrorMessage } from "../../services/api";
 
 export function DesignListPage() {
+  const navigate = useNavigate();
   const { data: designs, isLoading } = useDesigns();
   const createDesign = useCreateDesign();
+  const generateSafe = useGenerateSafeRecommendation();
   const [name, setName] = useState("");
+  const [safeName, setSafeName] = useState("SAFE Recommendation");
 
   function handleCreate() {
     if (!name.trim()) return;
     createDesign.mutate({ name, mode: "manual" });
     setName("");
+  }
+
+  function handleGenerateSafe() {
+    if (!safeName.trim()) return;
+    generateSafe.mutate(safeName.trim(), {
+      onSuccess: (result) => navigate(`/design-configuration/designs/${result.design_id}`),
+    });
   }
 
   return (
@@ -29,6 +41,22 @@ export function DesignListPage() {
           </button>
         </div>
       </div>
+
+      <div className="panel" style={{ marginBottom: 20, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ marginRight: "auto" }}>
+          <strong>Generate SAFE Recommendation</strong>
+          <p className="muted" style={{ margin: "2px 0 0" }}>
+            Builds a reference architecture from assets you've classified by SAFE zone (Assets &rarr; SAFE Zone column).
+          </p>
+        </div>
+        <input placeholder="Design name" value={safeName} onChange={(e) => setSafeName(e.target.value)} />
+        <button onClick={handleGenerateSafe} disabled={!safeName.trim() || generateSafe.isPending}>
+          {generateSafe.isPending ? "Generating..." : "Generate"}
+        </button>
+      </div>
+      {generateSafe.isError && (
+        <p className="form-error">{getErrorMessage(generateSafe.error, "Could not generate recommendation")}</p>
+      )}
 
       {isLoading && <p>Loading...</p>}
       {designs && (

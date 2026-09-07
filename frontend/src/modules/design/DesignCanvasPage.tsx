@@ -19,6 +19,22 @@ const STATUS_BADGE: Record<string, string> = {
   archived: "badge-medium",
 };
 
+// Colors for the SAFE-zone-classified components an architecture recommendation generates
+// (see useArchitectureRecommendation / backend app/domains/architecture_recommendation).
+// Manually-added components have no safe_pin and fall back to the default color below.
+const SAFE_PIN_COLORS: Record<string, string> = {
+  cloud: "#0ea5e9",
+  internet_edge: "#dc2626",
+  wan: "#d97706",
+  branch: "#65a30d",
+  campus_core: "#4f46e5",
+  campus_distribution: "#7c3aed",
+  campus_access: "#a855f7",
+  data_center: "#0891b2",
+  management: "#64748b",
+};
+const DEFAULT_NODE_COLOR = "#334155";
+
 export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();
   const { data: design, isError: designIsError } = useDesign(designId);
@@ -36,12 +52,22 @@ export function DesignCanvasPage() {
   useEffect(() => {
     if (!graph) return;
     setNodes(
-      graph.components.map((c, i) => ({
-        id: c.id,
-        position: c.position ?? { x: (i % 5) * 160, y: Math.floor(i / 5) * 120 },
-        data: { label: `${c.name} (${c.component_type})` },
-        style: { fontSize: 12 },
-      })),
+      graph.components.map((c, i) => {
+        const safePin = typeof c.properties?.safe_pin === "string" ? c.properties.safe_pin : null;
+        const isRecommended = c.properties?.recommended === true;
+        const color = (safePin && SAFE_PIN_COLORS[safePin]) || DEFAULT_NODE_COLOR;
+        return {
+          id: c.id,
+          position: c.position ?? { x: (i % 5) * 160, y: Math.floor(i / 5) * 120 },
+          data: { label: `${c.name} (${c.component_type})` },
+          style: {
+            fontSize: 12,
+            border: `2px ${isRecommended ? "dashed" : "solid"} ${color}`,
+            background: isRecommended ? "#ffffff" : `${color}14`,
+            opacity: isRecommended ? 0.85 : 1,
+          },
+        };
+      }),
     );
     setEdges(
       graph.relationships.map((r) => ({
@@ -107,6 +133,20 @@ export function DesignCanvasPage() {
             </button>
           </div>
           {addComponent.isError && <p className="form-error">{getErrorMessage(addComponent.error, "Could not add component")}</p>}
+        </div>
+      )}
+
+      {graph?.components.some((c) => c.properties?.safe_pin) && (
+        <div className="muted" style={{ marginBottom: 8, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <span>
+            <strong style={{ border: "2px solid #334155", padding: "1px 6px", borderRadius: 4, marginRight: 4 }}>solid</strong>
+            existing asset
+          </span>
+          <span>
+            <strong style={{ border: "2px dashed #334155", padding: "1px 6px", borderRadius: 4, marginRight: 4 }}>dashed</strong>
+            recommended, not yet in inventory
+          </span>
+          <span>color = SAFE zone</span>
         </div>
       )}
 

@@ -1,6 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiSuccess } from "../services/api";
 
+export type SafePin =
+  | "internet_edge"
+  | "wan"
+  | "campus_core"
+  | "campus_distribution"
+  | "campus_access"
+  | "data_center"
+  | "branch"
+  | "cloud"
+  | "management";
+
+export const SAFE_PIN_LABELS: Record<SafePin, string> = {
+  internet_edge: "Internet Edge",
+  wan: "WAN",
+  campus_core: "Campus Core",
+  campus_distribution: "Campus Distribution",
+  campus_access: "Campus Access",
+  data_center: "Data Center",
+  branch: "Branch",
+  cloud: "Cloud",
+  management: "Management & Security Operations",
+};
+
 export interface Asset {
   id: string;
   asset_code: string;
@@ -13,6 +36,7 @@ export interface Asset {
   managed: "managed" | "unmanaged" | "pending";
   site_id: string | null;
   environment_id: string | null;
+  safe_pin: SafePin | null;
 }
 
 interface AssetListParams {
@@ -68,6 +92,7 @@ export interface CreateAssetInput {
   criticality?: Asset["criticality"];
   status?: Asset["status"];
   managed?: Asset["managed"];
+  safe_pin?: SafePin;
 }
 
 export function useCreateAsset() {

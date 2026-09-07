@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAssets, useAssetTypes, useCreateAsset } from "../../hooks/useAssets";
+import { SAFE_PIN_LABELS, useAssets, useAssetTypes, useCreateAsset, type SafePin } from "../../hooks/useAssets";
 import { getErrorMessage } from "../../services/api";
 
 const CRITICALITY_LABEL: Record<string, string> = {
@@ -18,6 +18,7 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
   const [assetTypeId, setAssetTypeId] = useState("");
   const [managementIp, setManagementIp] = useState("");
   const [criticality, setCriticality] = useState<"low" | "medium" | "high" | "critical">("medium");
+  const [safePin, setSafePin] = useState<SafePin | "">("");
 
   function handleSubmit() {
     if (!name.trim() || !assetTypeId) return;
@@ -28,6 +29,7 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
         asset_type_id: assetTypeId,
         management_ip: managementIp.trim() || undefined,
         criticality,
+        safe_pin: safePin || undefined,
       },
       { onSuccess: onDone },
     );
@@ -55,6 +57,14 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
           <option value="medium">Medium</option>
           <option value="high">High</option>
           <option value="critical">Critical</option>
+        </select>
+        <select value={safePin} onChange={(e) => setSafePin(e.target.value as SafePin | "")}>
+          <option value="">SAFE zone (optional)...</option>
+          {Object.entries(SAFE_PIN_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -110,12 +120,13 @@ export function AssetListPage() {
               <th>Criticality</th>
               <th>Status</th>
               <th>Managed</th>
+              <th>SAFE Zone</th>
             </tr>
           </thead>
           <tbody>
             {data.data.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={8} className="empty-state">
                   No assets found.
                 </td>
               </tr>
@@ -135,6 +146,7 @@ export function AssetListPage() {
                 </td>
                 <td>{asset.status}</td>
                 <td>{asset.managed}</td>
+                <td>{asset.safe_pin ? SAFE_PIN_LABELS[asset.safe_pin] : <span className="muted">Unclassified</span>}</td>
               </tr>
             ))}
           </tbody>

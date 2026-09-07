@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 
-from app.domains.assets.models import AssetStatus, Criticality, ManagedStatus
+from app.domains.assets.models import AssetStatus, Criticality, ManagedStatus, SafePin
 
 # psycopg returns INET/MACADDR columns as ipaddress/str-like objects rather than plain str;
 # coerce to str so the API always serializes them as strings.
@@ -33,6 +33,7 @@ class AssetBase(BaseModel):
     status: AssetStatus = AssetStatus.UNKNOWN
     managed: ManagedStatus = ManagedStatus.PENDING
     credential_profile_id: uuid.UUID | None = None
+    safe_pin: SafePin | None = None
     asset_metadata: dict | None = None
 
 
@@ -62,6 +63,7 @@ class AssetUpdate(BaseModel):
     status: AssetStatus | None = None
     managed: ManagedStatus | None = None
     credential_profile_id: uuid.UUID | None = None
+    safe_pin: SafePin | None = None
     asset_metadata: dict | None = None
 
 
