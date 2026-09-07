@@ -34,7 +34,7 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>
+    <div className="panel" style={{ marginBottom: 20 }}>
       <h2>Add Asset</h2>
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <input placeholder="Name (required)" value={name} onChange={(e) => setName(e.target.value)} />
@@ -61,7 +61,9 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
         <button onClick={handleSubmit} disabled={!name.trim() || !assetTypeId || createAsset.isPending}>
           {createAsset.isPending ? "Creating..." : "Create Asset"}
         </button>
-        <button onClick={onDone}>Cancel</button>
+        <button className="btn-secondary" onClick={onDone}>
+          Cancel
+        </button>
         {createAsset.isError && <span className="form-error">{getErrorMessage(createAsset.error, "Could not create asset")}</span>}
         {assetTypesIsError && <span className="form-error">Could not load asset types.</span>}
         {!assetTypesLoading && !assetTypesIsError && assetTypes?.length === 0 && (

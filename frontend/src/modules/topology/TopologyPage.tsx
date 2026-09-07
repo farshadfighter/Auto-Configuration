@@ -85,7 +85,7 @@ export function TopologyPage() {
         </div>
       )}
 
-      <div style={{ height: 520, border: "1px solid var(--color-border)", borderRadius: 8, background: "#fff" }}>
+      <div className="canvas-container" style={{ height: 520 }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}

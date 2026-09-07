@@ -1,23 +1,116 @@
 :root {
-  --color-bg: #0f172a;
+  /* Brand */
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-active: #3730a3;
+  --color-primary-light: #eef2ff;
+  --color-primary-text: #4338ca;
+
+  /* Neutrals */
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+
+  /* Semantic surfaces */
+  --color-bg: var(--slate-900);
+  --color-page-bg: #f6f7fb;
   --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-primary: #2563eb;
-  --sidebar-width: 240px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-border: var(--slate-200);
+  --color-border-strong: var(--slate-300);
+  --color-text: var(--slate-900);
+  --color-text-secondary: var(--slate-600);
+  --color-muted: var(--slate-500);
+
+  /* Status */
+  --color-success: #16a34a;
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #991b1b;
+  --color-info: #2563eb;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1e40af;
+
+  /* Metrics */
+  --sidebar-width: 248px;
+  --topbar-height: 60px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  /* System font stack only - no external font CDN. This runs as an internal ops tool that
+     may sit behind a restrictive firewall, where a Google Fonts fetch can hang or fail
+     (confirmed in testing: the browser has no route to fonts.googleapis.com even though
+     curl does via a configured proxy) - not worth the risk for a marginal type upgrade. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, Menlo, monospace;
+
+  font-family: var(--font-sans);
+  color-scheme: light;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  background: #f8fafc;
+  background: var(--color-page-bg);
   color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--slate-900);
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 1.0625rem;
+  margin: 0 0 12px;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------- Layout */
 
 .app-shell {
   display: flex;
@@ -26,44 +119,89 @@ body {
 
 .sidebar {
   width: var(--sidebar-width);
-  background: #0f172a;
-  color: #e2e8f0;
   flex-shrink: 0;
+  background: linear-gradient(180deg, var(--slate-900) 0%, var(--slate-950) 100%);
+  color: var(--slate-300);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 20px;
 }
 
 .sidebar-brand {
-  padding: 20px;
-  font-weight: 700;
-  font-size: 1.25rem;
-  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 22px 20px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.sidebar-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-nav {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 12px;
+  flex: 1;
 }
 
 .sidebar-nav li {
-  padding: 10px 20px;
-  font-size: 0.9rem;
+  margin-bottom: 2px;
 }
 
 .sidebar-nav li.disabled {
-  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 0.85rem;
+  color: var(--slate-600);
   cursor: not-allowed;
 }
 
 .sidebar-nav a {
-  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--slate-300);
   text-decoration: none;
-  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
-.sidebar-nav a.active,
 .sidebar-nav a:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-nav a.active {
+  color: #ffffff;
   font-weight: 600;
+  background: rgba(79, 70, 229, 0.35);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.sidebar-nav svg {
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .app-main {
@@ -74,140 +212,339 @@ body {
 }
 
 .topbar {
-  height: 56px;
+  height: var(--topbar-height);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 28px;
+  flex-shrink: 0;
 }
 
 .topbar-user {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.topbar-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .content {
-  padding: 24px;
+  padding: 28px;
   flex: 1;
+  max-width: 1400px;
+  width: 100%;
 }
+
+/* ------------------------------------------------------------------ Login */
 
 .login-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(79, 70, 229, 0.35), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(124, 58, 237, 0.25), transparent 45%),
+    var(--slate-950);
+  padding: 20px;
 }
 
 .login-card {
   background: var(--color-surface);
-  padding: 32px;
-  border-radius: 8px;
-  width: 320px;
+  padding: 36px 32px 32px;
+  border-radius: var(--radius-lg);
+  width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  box-shadow: var(--shadow-lg);
 }
 
 .login-card h1 {
-  margin: 0 0 8px;
-  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  font-size: 1.3rem;
+}
+
+.login-card p.login-subtitle {
+  margin: -12px 0 4px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
 }
 
 .login-card label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.85rem;
-  color: var(--color-muted);
-}
-
-.login-card input {
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.login-card button,
-button {
-  cursor: pointer;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 .login-card button {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 4px;
-  font-weight: 600;
+  margin-top: 6px;
+  padding: 11px;
+  font-size: 0.9rem;
 }
 
+/* ---------------------------------------------------------- Form controls */
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: 0.875rem;
+}
+
+input,
+select,
+textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--slate-400);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--slate-100);
+  color: var(--slate-400);
+  cursor: not-allowed;
+}
+
+select {
+  cursor: pointer;
+}
+
+textarea {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+button {
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #ffffff;
+  font-weight: 600;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+button:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25);
+}
+
+button:disabled {
+  background: var(--slate-200);
+  color: var(--slate-400);
+  cursor: not-allowed;
+}
+
+/* Secondary/ghost buttons: plain-text actions like "Cancel" or destructive-adjacent
+   actions get a neutral treatment instead of every button on the page shouting equally. */
+.topbar button,
+button.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-strong);
+}
+
+.topbar button:hover:not(:disabled),
+button.btn-secondary:hover:not(:disabled) {
+  background: var(--slate-50);
+  color: var(--color-text);
+}
+
+button.btn-danger {
+  background: var(--color-danger);
+}
+
+button.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+/* ------------------------------------------------------------------- Misc */
+
 .form-error {
-  color: #dc2626;
-  font-size: 0.85rem;
+  color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0 0 12px;
+  display: inline-block;
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0;
 }
 
 .search-input {
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  width: 280px;
+  width: 300px;
 }
+
+/* ------------------------------------------------------------------ Table */
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .data-table th,
 .data-table td {
   text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.9rem;
+  padding: 11px 16px;
+  font-size: 0.85rem;
 }
 
-.data-table th {
+.data-table thead th {
   color: var(--color-muted);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.1s ease;
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--slate-50);
+}
+
+.data-table a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.data-table a:hover {
+  text-decoration: underline;
 }
 
 .empty-state {
   text-align: center;
   color: var(--color-muted);
-  padding: 24px;
+  padding: 22px 16px;
+  font-size: 0.85rem;
 }
 
+/* Standalone empty states (outside a table row) get their own contained box instead of
+   floating text with large padding and no visual boundary. */
+p.empty-state {
+  text-align: left;
+  background: var(--slate-50);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  margin: 0 0 16px;
+}
+
+/* ------------------------------------------------------------------ Badge */
+
 .badge {
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.6;
+}
+
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .badge-low {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .badge-medium {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .badge-high {
@@ -216,62 +553,91 @@ button {
 }
 
 .badge-critical {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
+
+/* ------------------------------------------------------------------- Cards */
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
 .kpi-tile {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 20px;
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .kpi-tile.disabled {
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 .kpi-value {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.875rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--slate-900);
 }
 
 .kpi-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-muted);
+  font-weight: 500;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: 160px 1fr;
-  gap: 8px 16px;
+  gap: 10px 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 600px;
+  border-radius: var(--radius-md);
+  padding: 22px 24px;
+  max-width: 640px;
+  box-shadow: var(--shadow-sm);
 }
 
 .detail-grid dt {
   color: var(--color-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .detail-grid dd {
   margin: 0;
+  font-weight: 500;
 }
 
 .muted {
   color: var(--color-muted);
   font-weight: 400;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+/* A bordered panel used for inline "Add X" forms scattered across pages
+   (Add Asset, Add Component, Add Configuration Object, ...). */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* React Flow canvases (Topology, Design) */
+.canvas-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }

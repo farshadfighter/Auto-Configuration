@@ -103,7 +103,9 @@ export function DriftFindingsPage() {
                       <button onClick={() => handleRestore(f.id)} disabled={restoreDesired.isPending}>
                         Restore Desired
                       </button>
-                      <button onClick={() => setIgnoringId(f.id)}>Ignore</button>
+                      <button className="btn-secondary" onClick={() => setIgnoringId(f.id)}>
+                        Ignore
+                      </button>
                     </div>
                   )}
                   {ignoringId === f.id && (

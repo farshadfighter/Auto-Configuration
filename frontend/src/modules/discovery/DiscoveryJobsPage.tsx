@@ -84,7 +84,7 @@ export function DiscoveryJobsPage() {
                   <td>{job.failed_count}</td>
                   <td>
                     {job.failed_count > 0 && (
-                      <button onClick={() => setExpandedJobId(expandedJobId === job.id ? null : job.id)}>
+                      <button className="btn-secondary" onClick={() => setExpandedJobId(expandedJobId === job.id ? null : job.id)}>
                         {expandedJobId === job.id ? "Hide errors" : "Show errors"}
                       </button>
                     )}

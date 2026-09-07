@@ -14,8 +14,9 @@ function TileStatus({ isLoading, isError }: { isLoading: boolean; isError: boole
   return null;
 }
 
-function CountBreakdown({ counts }: { counts: Record<string, unknown> }) {
-  const entries = Object.entries(counts).filter(([k]) => k !== "total");
+function CountBreakdown({ counts, exclude = [] }: { counts: Record<string, unknown>; exclude?: string[] }) {
+  const hidden = new Set(["total", ...exclude]);
+  const entries = Object.entries(counts).filter(([k]) => !hidden.has(k));
   if (entries.length === 0) return <p className="empty-state">No data.</p>;
   return (
     <ul>
@@ -75,7 +76,7 @@ export function ReportsPage() {
           {deployments.data && (
             <>
               <p>Success rate: {deployments.data.success_rate !== null ? `${Math.round(deployments.data.success_rate * 100)}%` : "—"}</p>
-              <CountBreakdown counts={deployments.data} />
+              <CountBreakdown counts={deployments.data} exclude={["success_rate"]} />
             </>
           )}
         </div>

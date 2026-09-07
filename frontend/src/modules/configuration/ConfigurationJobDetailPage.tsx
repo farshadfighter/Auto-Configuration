@@ -106,7 +106,9 @@ export function ConfigurationJobDetailPage() {
               Create Deployment
             </button>
           )}
-          <button onClick={() => setShowDiff((v) => !v)}>{showDiff ? "Hide Diff" : "Show Diff"}</button>
+          <button className="btn-secondary" onClick={() => setShowDiff((v) => !v)}>
+            {showDiff ? "Hide Diff" : "Show Diff"}
+          </button>
         </div>
       </div>
 
@@ -121,7 +123,7 @@ export function ConfigurationJobDetailPage() {
       {createDeployment.isError && <p className="form-error">{getErrorMessage(createDeployment.error, "Could not create deployment")}</p>}
 
       {job.status === "pending_approval" && approvalRequest && approvalRequest.status === "pending" && (
-        <section style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>
+        <section className="panel" style={{ marginBottom: 20 }}>
           <h2>Approval Required</h2>
           <p className="muted">
             Requires {approvalRequest.required_approvals} approval(s) at risk level {approvalRequest.risk_level}.
@@ -132,6 +134,7 @@ export function ConfigurationJobDetailPage() {
             </button>
             <input placeholder="Rejection reason" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
             <button
+              className="btn-danger"
               onClick={() => rejectRequest.mutate({ requestId: approvalRequest.id, comment: rejectReason })}
               disabled={!rejectReason.trim() || rejectRequest.isPending}
             >
@@ -144,7 +147,7 @@ export function ConfigurationJobDetailPage() {
       )}
 
       {job.status === "draft" && (
-        <section style={{ marginBottom: 20, border: "1px solid var(--color-border)", borderRadius: 8, padding: 16 }}>
+        <section className="panel" style={{ marginBottom: 20 }}>
           <h2>Add Configuration Object</h2>
           <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
@@ -243,7 +246,7 @@ export function ConfigurationJobDetailPage() {
         <div style={{ marginTop: 20 }}>
           <h2>Diff Preview</h2>
           {diff.map((d) => (
-            <div key={d.object_id} style={{ marginBottom: 12, border: "1px solid var(--color-border)", borderRadius: 8, padding: 12 }}>
+            <div key={d.object_id} className="panel" style={{ marginBottom: 12, padding: 14 }}>
               <strong>
                 {d.object_type} ({d.change_type})
               </strong>

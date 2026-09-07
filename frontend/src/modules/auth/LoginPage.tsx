@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLogin } from "../../hooks/useAuth";
+import { getErrorMessage } from "../../services/api";
 
 export function LoginPage() {
   const [username, setUsername] = useState("");
@@ -14,7 +15,11 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>NGFabric</h1>
+        <h1>
+          <span className="sidebar-brand-mark">NF</span>
+          NGFabric
+        </h1>
+        <p className="login-subtitle">Infrastructure design &amp; change automation</p>
         <label>
           Username
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
@@ -23,7 +28,7 @@ export function LoginPage() {
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
-        {login.isError && <p className="form-error">Invalid username or password.</p>}
+        {login.isError && <p className="form-error">{getErrorMessage(login.error, "Invalid username or password.")}</p>}
         <button type="submit" disabled={login.isPending}>
           {login.isPending ? "Signing in..." : "Sign in"}
         </button>

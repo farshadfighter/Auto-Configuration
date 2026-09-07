@@ -97,7 +97,9 @@ export function FindingsPage() {
                       <button onClick={() => acceptFinding.mutate(f.id)} disabled={acceptFinding.isPending}>
                         Accept
                       </button>
-                      <button onClick={() => setIgnoringId(f.id)}>Ignore</button>
+                      <button className="btn-secondary" onClick={() => setIgnoringId(f.id)}>
+                        Ignore
+                      </button>
                     </div>
                   )}
                   {ignoringId === f.id && (

@@ -19,7 +19,9 @@ export function DesignListPage() {
         <h1>Architecture Designs</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <Link to="/design-configuration/jobs">
-            <button type="button">Configuration Jobs &rarr;</button>
+            <button type="button" className="btn-secondary">
+              Configuration Jobs &rarr;
+            </button>
           </Link>
           <input placeholder="New design name" value={name} onChange={(e) => setName(e.target.value)} />
           <button onClick={handleCreate} disabled={!name.trim() || createDesign.isPending}>
