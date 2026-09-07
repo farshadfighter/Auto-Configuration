@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfigurationJobs, useCreateConfigurationJob } from "../../hooks/useConfiguration";
+import { getErrorMessage } from "../../services/api";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "badge-medium",
@@ -15,7 +16,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export function ConfigurationJobsPage() {
-  const { data: jobs, isLoading } = useConfigurationJobs();
+  const { data: jobs, isLoading, isError } = useConfigurationJobs();
   const createJob = useCreateConfigurationJob();
   const [name, setName] = useState("");
   const [justification, setJustification] = useState("");
@@ -40,8 +41,10 @@ export function ConfigurationJobsPage() {
           Create Job
         </button>
       </div>
+      {createJob.isError && <p className="form-error">{getErrorMessage(createJob.error, "Could not create job")}</p>}
 
       {isLoading && <p>Loading...</p>}
+      {isError && <p className="form-error">Failed to load configuration jobs.</p>}
       {jobs && (
         <table className="data-table">
           <thead>

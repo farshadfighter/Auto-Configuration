@@ -21,7 +21,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();
-  const { data: design } = useDesign(designId);
+  const { data: design, isError: designIsError } = useDesign(designId);
   const versionId = design?.latest_version.id;
   const { data: graph } = useVersionGraph(versionId);
   const addComponent = useAddComponent(versionId, designId ?? "");
@@ -53,6 +53,7 @@ export function DesignCanvasPage() {
     );
   }, [graph, setNodes, setEdges]);
 
+  if (designIsError) return <p className="form-error">Design not found.</p>;
   if (!design) return <p>Loading...</p>;
 
   const isDraft = design.latest_version.status === "draft";
@@ -100,7 +101,7 @@ export function DesignCanvasPage() {
                 addComponent.mutate({ component_type: componentType, name: componentName });
                 setComponentName("");
               }}
-              disabled={!componentName.trim()}
+              disabled={!componentName.trim() || addComponent.isPending}
             >
               Add Component
             </button>

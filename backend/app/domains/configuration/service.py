@@ -159,7 +159,19 @@ def generate(db: Session, job_id: uuid.UUID) -> ConfigurationJob:
         obj.execution_order = order_index[obj.id]
 
         driver = get_driver(obj.technology)
-        operations = driver.generate_operations(obj.object_type, change_type, obj.parameters, obj.current_state)
+        try:
+            operations = driver.generate_operations(obj.object_type, change_type, obj.parameters, obj.current_state)
+        except Exception as exc:
+            # obj.parameters is an arbitrary client-supplied dict (no per-technology schema
+            # is enforced before this point - validate() runs after generate(), not before),
+            # and drivers index into it directly (e.g. parameters["vlan_id"]) without a
+            # .get() guard. A malformed object must not crash the whole job's generate call
+            # for every other object in it; land it as a clean, job-level failure instead.
+            job.status = JobStatus.FAILED
+            db.commit()
+            raise ValidationAppError(
+                "GENERATE_FAILED", f"Could not generate operations for object {obj.id} ({obj.object_type}): {exc}"
+            )
         obj.rendered_operations = [
             {"sequence": op.sequence, "operation_type": op.operation_type, "rendered_config": op.rendered_config}
             for op in operations

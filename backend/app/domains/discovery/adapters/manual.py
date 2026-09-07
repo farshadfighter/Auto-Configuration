@@ -1,10 +1,14 @@
 import ipaddress
+import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domains.assets.models import AssetType, Criticality, Vendor
 from app.domains.discovery.adapters.base import DiscoveredRecord, DiscoveryAdapter, DiscoveryOutcome
+
+
+_MAC_ADDRESS_RE = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 
 
 class LookupResolutionMixin:
@@ -50,6 +54,13 @@ class LookupResolutionMixin:
             except ValueError:
                 return DiscoveredRecord(target=target, raw_data=row, error=f"Invalid management_ip '{management_ip}'")
 
+        mac_address = row.get("mac_address") or None
+        if mac_address and not _MAC_ADDRESS_RE.match(mac_address):
+            # Same reasoning as management_ip: find_duplicate() casts this straight to
+            # Postgres MACADDR in a WHERE clause with no guard anywhere in the discovery
+            # chain, so an invalid value would otherwise crash the whole job at query time.
+            return DiscoveredRecord(target=target, raw_data=row, error=f"Invalid mac_address '{mac_address}'")
+
         normalized = {
             "name": row.get("name") or row.get("hostname") or target,
             "hostname": row.get("hostname"),
@@ -57,7 +68,7 @@ class LookupResolutionMixin:
             "vendor_id": self._resolve_vendor_id(row.get("vendor_name")),
             "management_ip": management_ip,
             "serial_number": row.get("serial_number") or None,
-            "mac_address": row.get("mac_address") or None,
+            "mac_address": mac_address,
             "criticality": criticality,
         }
         return DiscoveredRecord(target=target, raw_data=row, normalized_data=normalized)

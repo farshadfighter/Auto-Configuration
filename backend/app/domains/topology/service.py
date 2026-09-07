@@ -10,18 +10,26 @@ from app.domains.topology.models import TopologyLayout, TopologyLink, TopologyNo
 
 
 def sync_nodes_from_assets(db: Session) -> int:
-    """Ensures every non-deleted asset has a corresponding topology node. Idempotent."""
-    existing_refs = {
-        n.reference_id
-        for n in db.scalars(select(TopologyNode).where(TopologyNode.node_type == TopologyNodeType.DEVICE))
-    }
+    """Ensures every non-deleted asset has a corresponding topology node, and removes device
+    nodes left over from an asset that has since been soft-deleted (otherwise they'd persist
+    in the graph, topology validation, and best-practice asset counts forever). Idempotent."""
+    device_nodes = list(db.scalars(select(TopologyNode).where(TopologyNode.node_type == TopologyNodeType.DEVICE)))
+    existing_refs = {n.reference_id: n for n in device_nodes}
+
     assets = list(db.scalars(select(Asset).where(Asset.deleted_at.is_(None))))
+    live_asset_ids = {a.id for a in assets}
+
     created = 0
     for asset in assets:
         if asset.id in existing_refs:
             continue
         db.add(TopologyNode(node_type=TopologyNodeType.DEVICE, reference_id=asset.id, label=asset.name))
         created += 1
+
+    for node in device_nodes:
+        if node.reference_id not in live_asset_ids:
+            db.delete(node)
+
     db.flush()
     return created
 
@@ -105,6 +113,8 @@ def update_layout(db: Session, view_id: uuid.UUID, positions: list[dict]) -> Non
     }
     for pos in positions:
         node_id = pos["node_id"]
+        if not db.get(TopologyNode, node_id):
+            raise NotFoundError("TOPOLOGY_NODE_NOT_FOUND", f"Topology node {node_id} not found")
         if node_id in existing:
             existing[node_id].position_x = pos["x"]
             existing[node_id].position_y = pos["y"]

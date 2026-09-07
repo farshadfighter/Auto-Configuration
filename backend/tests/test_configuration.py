@@ -99,6 +99,25 @@ def test_invalid_vlan_blocks_job_with_critical_validation(client, admin_headers,
     assert submit.status_code == 409  # can't submit a FAILED job
 
 
+def test_generate_with_missing_required_parameter_fails_cleanly_not_a_crash(client, admin_headers, asset_type):
+    # obj.parameters is an arbitrary client-supplied dict with no per-technology schema
+    # enforced before generate() runs (validate() runs after) - the driver indexes straight
+    # into it (parameters["vlan_id"]), so a missing key must not crash the whole request.
+    asset = _create_asset(client, admin_headers, asset_type, "cfg-switch-missing-key")
+    job = _create_job(client, admin_headers)
+    client.post(
+        f"/api/v1/configuration/jobs/{job['id']}/objects",
+        headers=admin_headers,
+        json={"asset_id": asset["id"], "technology": "cisco_iosxe", "object_type": "vlan", "parameters": {"name": "NoVlanId"}},
+    )
+    generate = client.post(f"/api/v1/configuration/jobs/{job['id']}/generate", headers=admin_headers)
+    assert generate.status_code == 422, generate.text
+    assert generate.json()["error"]["code"] == "GENERATE_FAILED"
+
+    job_after = client.get(f"/api/v1/configuration/jobs/{job['id']}", headers=admin_headers).json()["data"]
+    assert job_after["status"] == "failed"
+
+
 def test_dependency_cycle_fails_job(client, admin_headers, asset_type):
     asset = _create_asset(client, admin_headers, asset_type, "cfg-switch-cycle")
     job = _create_job(client, admin_headers)

@@ -8,11 +8,12 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function DeploymentDetailPage() {
   const { deploymentId } = useParams<{ deploymentId: string }>();
-  const { data: deployment } = useDeploymentJob(deploymentId);
+  const { data: deployment, isError: deploymentIsError } = useDeploymentJob(deploymentId);
   const { data: events } = useDeploymentEvents(deploymentId);
   const { data: results } = useDeploymentResults(deploymentId);
   const startDeployment = useStartDeployment(deploymentId ?? "");
 
+  if (deploymentIsError) return <p className="form-error">Deployment job not found.</p>;
   if (!deployment) return <p>Loading...</p>;
 
   const isTerminal = !["queued"].includes(deployment.status) || Boolean(deployment.completed_at);

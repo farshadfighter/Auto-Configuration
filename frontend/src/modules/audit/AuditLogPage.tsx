@@ -12,7 +12,7 @@ interface AuditEvent {
 }
 
 export function AuditLogPage() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["audit", "events"],
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<AuditEvent[]>>("/audit/events");
@@ -24,6 +24,7 @@ export function AuditLogPage() {
     <div>
       <h1>Audit &amp; Logs</h1>
       {isLoading && <p>Loading...</p>}
+      {isError && <p className="form-error">Failed to load audit events.</p>}
       {data && (
         <table className="data-table">
           <thead>

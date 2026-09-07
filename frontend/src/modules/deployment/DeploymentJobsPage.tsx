@@ -17,7 +17,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export function DeploymentJobsPage() {
-  const { data: deployments, isLoading } = useDeploymentJobs();
+  const { data: deployments, isLoading, isError } = useDeploymentJobs();
 
   return (
     <div>
@@ -27,6 +27,7 @@ export function DeploymentJobsPage() {
       </p>
 
       {isLoading && <p>Loading...</p>}
+      {isError && <p className="form-error">Failed to load deployments.</p>}
       {deployments && (
         <table className="data-table">
           <thead>

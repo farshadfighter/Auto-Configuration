@@ -107,6 +107,37 @@ def test_map_component_to_asset(client, admin_headers, asset_type):
     assert response.status_code == 200
 
 
+def test_map_component_to_unknown_asset_returns_404_not_a_crash(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Bad Asset Mapping"}).json()["data"]
+    version_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+    component = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Core-2"},
+    ).json()["data"]
+
+    response = client.post(
+        f"/api/v1/designs/components/{component['id']}/map-asset",
+        headers=admin_headers,
+        json={"asset_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "ASSET_NOT_FOUND"
+
+
+def test_map_unknown_recommendation_returns_404_not_a_crash(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Bad Finding Mapping"}).json()["data"]
+    version_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+
+    response = client.post(
+        f"/api/v1/designs/versions/{version_id}/map-recommendation",
+        headers=admin_headers,
+        json={"finding_id": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "FINDING_NOT_FOUND"
+
+
 def test_viewer_cannot_create_design(client, viewer_headers):
     response = client.post("/api/v1/designs", headers=viewer_headers, json={"name": "denied"})
     assert response.status_code == 403

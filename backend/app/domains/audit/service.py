@@ -3,11 +3,15 @@ import json
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.base import utcnow
 from app.domains.audit.models import AuditEvent
+
+# Arbitrary fixed key for a Postgres transaction-scoped advisory lock (released
+# automatically on commit/rollback) - see its use in record_audit_event below.
+_AUDIT_CHAIN_LOCK_KEY = 725_318_492
 
 
 def _compute_hash(prev_hash: str | None, payload: dict[str, Any]) -> str:
@@ -36,6 +40,13 @@ def record_audit_event(
     related_job: str | None = None,
 ) -> AuditEvent:
     """Appends a tamper-evident audit event (hash-chained). Caller is responsible for db.commit()."""
+    # Without this, two concurrent requests could both read the same "last" event and both
+    # chain their new event to it, forking the tamper-evident chain - a plain row lock on
+    # the last row wouldn't help, since inserting a new row never touches (or blocks on) the
+    # previous one. This transaction-scoped advisory lock serializes appends instead; it
+    # releases automatically when the caller commits or rolls back.
+    db.execute(select(func.pg_advisory_xact_lock(_AUDIT_CHAIN_LOCK_KEY)))
+
     timestamp = utcnow()
     prev_hash = _last_hash(db)
     payload = {

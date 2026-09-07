@@ -34,7 +34,7 @@ const VALIDATION_BADGE: Record<string, string> = {
 export function ConfigurationJobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
-  const { data: job } = useConfigurationJob(jobId);
+  const { data: job, isError: jobIsError } = useConfigurationJob(jobId);
   const { data: objects } = useConfigurationObjects(jobId);
   const { data: assets } = useAssets({ page_size: 200 });
   const { data: catalog } = useTechnologyCatalog();
@@ -55,6 +55,7 @@ export function ConfigurationJobDetailPage() {
   const [objectType, setObjectType] = useState("vlan");
   const [paramsText, setParamsText] = useState(OBJECT_TYPE_PARAM_HINTS.vlan);
 
+  if (jobIsError) return <p className="form-error">Configuration job not found.</p>;
   if (!job) return <p>Loading...</p>;
 
   const availableObjectTypes = catalog?.find((c) => c.technology === technology);

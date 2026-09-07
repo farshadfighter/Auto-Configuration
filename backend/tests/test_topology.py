@@ -76,6 +76,28 @@ def test_topology_layout_update(client, admin_headers):
     assert response.json()["data"]["updated"] == 1
 
 
+def test_topology_layout_update_rejects_unknown_node(client, admin_headers):
+    response = client.put(
+        "/api/v1/topology/layout",
+        headers=admin_headers,
+        json={"positions": [{"node_id": "00000000-0000-0000-0000-000000000000", "x": 1, "y": 1}]},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "TOPOLOGY_NODE_NOT_FOUND"
+
+
+def test_topology_sync_removes_node_for_soft_deleted_asset(client, admin_headers, asset_type):
+    asset = _create_asset(client, admin_headers, asset_type, "topo-will-be-deleted")
+    graph = client.get("/api/v1/topology", headers=admin_headers).json()["data"]
+    assert asset["id"] in {n["reference_id"] for n in graph["nodes"]}
+
+    delete = client.delete(f"/api/v1/assets/{asset['id']}", headers=admin_headers)
+    assert delete.status_code == 204
+
+    graph_after = client.get("/api/v1/topology", headers=admin_headers).json()["data"]
+    assert asset["id"] not in {n["reference_id"] for n in graph_after["nodes"]}
+
+
 def test_viewer_cannot_edit_topology(client, viewer_headers):
     response = client.post(
         "/api/v1/topology/nodes", headers=viewer_headers, json={"node_type": "site", "label": "denied"}

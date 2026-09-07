@@ -11,7 +11,7 @@ const CRITICALITY_LABEL: Record<string, string> = {
 };
 
 function AddAssetForm({ onDone }: { onDone: () => void }) {
-  const { data: assetTypes } = useAssetTypes();
+  const { data: assetTypes, isLoading: assetTypesLoading, isError: assetTypesIsError } = useAssetTypes();
   const createAsset = useCreateAsset();
   const [name, setName] = useState("");
   const [hostname, setHostname] = useState("");
@@ -39,7 +39,9 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <input placeholder="Name (required)" value={name} onChange={(e) => setName(e.target.value)} />
         <select value={assetTypeId} onChange={(e) => setAssetTypeId(e.target.value)}>
-          <option value="">Asset type (required)...</option>
+          <option value="">
+            {assetTypesLoading ? "Loading asset types..." : "Asset type (required)..."}
+          </option>
           {assetTypes?.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -61,6 +63,10 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
         </button>
         <button onClick={onDone}>Cancel</button>
         {createAsset.isError && <span className="form-error">{getErrorMessage(createAsset.error, "Could not create asset")}</span>}
+        {assetTypesIsError && <span className="form-error">Could not load asset types.</span>}
+        {!assetTypesLoading && !assetTypesIsError && assetTypes?.length === 0 && (
+          <span className="form-error">No asset types configured yet - ask an administrator to add one.</span>
+        )}
       </div>
     </div>
   );

@@ -94,7 +94,9 @@ export function FindingsPage() {
                 <td>
                   {f.status === "new" && (
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => acceptFinding.mutate(f.id)}>Accept</button>
+                      <button onClick={() => acceptFinding.mutate(f.id)} disabled={acceptFinding.isPending}>
+                        Accept
+                      </button>
                       <button onClick={() => setIgnoringId(f.id)}>Ignore</button>
                     </div>
                   )}

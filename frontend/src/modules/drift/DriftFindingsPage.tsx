@@ -97,8 +97,12 @@ export function DriftFindingsPage() {
                 <td>
                   {f.status === "new" && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => acceptCurrent.mutate(f.id)}>Accept Current</button>
-                      <button onClick={() => handleRestore(f.id)}>Restore Desired</button>
+                      <button onClick={() => acceptCurrent.mutate(f.id)} disabled={acceptCurrent.isPending}>
+                        Accept Current
+                      </button>
+                      <button onClick={() => handleRestore(f.id)} disabled={restoreDesired.isPending}>
+                        Restore Desired
+                      </button>
                       <button onClick={() => setIgnoringId(f.id)}>Ignore</button>
                     </div>
                   )}

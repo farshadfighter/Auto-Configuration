@@ -42,8 +42,8 @@ _OPERATORS = {
     "not_in": lambda actual, expected: actual not in expected,
     "exists": lambda actual, expected: actual is not None,
     "not_exists": lambda actual, expected: actual is None,
-    "greater_than": lambda actual, expected: actual is not None and actual > expected,
-    "less_than": lambda actual, expected: actual is not None and actual < expected,
+    "greater_than": lambda actual, expected: actual is not None and expected is not None and actual > expected,
+    "less_than": lambda actual, expected: actual is not None and expected is not None and actual < expected,
 }
 
 

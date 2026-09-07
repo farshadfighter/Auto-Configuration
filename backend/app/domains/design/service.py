@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
 from app.db.base import utcnow
+from app.domains.assets.models import Asset
+from app.domains.best_practice.models import ArchitectureFinding
 from app.domains.design.models import (
     ArchitectureDesign,
     ArchitectureDesignVersion,
@@ -147,6 +149,8 @@ def get_version_graph(db: Session, version_id: uuid.UUID) -> tuple[list[DesignCo
 def map_component_to_asset(db: Session, component_id: uuid.UUID, asset_id: uuid.UUID) -> None:
     if not db.get(DesignComponent, component_id):
         raise NotFoundError("DESIGN_COMPONENT_NOT_FOUND", f"Design component {component_id} not found")
+    if not db.get(Asset, asset_id):
+        raise NotFoundError("ASSET_NOT_FOUND", f"Asset {asset_id} not found")
     exists = db.get(DesignAssetMapping, {"design_component_id": component_id, "asset_id": asset_id})
     if not exists:
         db.add(DesignAssetMapping(design_component_id=component_id, asset_id=asset_id))
@@ -155,6 +159,8 @@ def map_component_to_asset(db: Session, component_id: uuid.UUID, asset_id: uuid.
 
 def map_recommendation(db: Session, version_id: uuid.UUID, finding_id: uuid.UUID) -> None:
     get_version(db, version_id)
+    if not db.get(ArchitectureFinding, finding_id):
+        raise NotFoundError("FINDING_NOT_FOUND", f"Architecture finding {finding_id} not found")
     exists = db.get(DesignRecommendationMapping, {"design_version_id": version_id, "finding_id": finding_id})
     if not exists:
         db.add(DesignRecommendationMapping(design_version_id=version_id, finding_id=finding_id))
