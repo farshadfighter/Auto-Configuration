@@ -76,3 +76,92 @@ def test_viewer_cannot_generate_safe_recommendation(client, viewer_headers):
         "/api/v1/architecture-recommendations/safe", headers=viewer_headers, json={"name": "Denied"}
     )
     assert response.status_code == 403
+
+
+def _link(client, headers, source_id, target_id):
+    response = client.post(
+        "/api/v1/assets/relationships",
+        headers=headers,
+        json={"source_asset_id": source_id, "target_asset_id": target_id, "relationship_type": "connected_to"},
+    )
+    assert response.status_code == 201, response.text
+
+
+def _get_path_analysis(client, headers):
+    response = client.get("/api/v1/architecture-recommendations/safe/path-analysis", headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()["data"]
+
+
+def test_path_analysis_flags_unprotected_direct_link(client, admin_headers, asset_type):
+    edge_router = _create_asset(client, admin_headers, asset_type, "path-edge-rtr", safe_pin="internet_edge")
+    core_switch = _create_asset(client, admin_headers, asset_type, "path-core-sw", safe_pin="campus_core")
+    _link(client, admin_headers, edge_router["id"], core_switch["id"])
+
+    findings = _get_path_analysis(client, admin_headers)
+    boundary_findings = [
+        f for f in findings if {f["pin_a"], f["pin_b"]} == {"internet_edge", "campus_core"} and f["source_asset_id"] == edge_router["id"]
+    ]
+    assert len(boundary_findings) == 1
+    finding = boundary_findings[0]
+    assert finding["protected"] is False
+    assert finding["required_capability"] == "firewall"
+    assert finding["path_asset_names"] == ["path-edge-rtr", "path-core-sw"]
+
+
+def test_path_analysis_marks_protected_when_firewall_sits_on_the_real_path(client, admin_headers, asset_type, db_session):
+    from app.domains.assets.models import AssetType
+
+    firewall_type = AssetType(code="firewall", name="Firewall")
+    db_session.add(firewall_type)
+    db_session.commit()
+
+    edge_router = _create_asset(client, admin_headers, asset_type, "path-edge-rtr-2", safe_pin="internet_edge")
+    firewall = _create_asset(client, admin_headers, asset_type, "path-fw", asset_type_id=str(firewall_type.id))
+    core_switch = _create_asset(client, admin_headers, asset_type, "path-core-sw-2", safe_pin="campus_core")
+    _link(client, admin_headers, edge_router["id"], firewall["id"])
+    _link(client, admin_headers, firewall["id"], core_switch["id"])
+
+    findings = _get_path_analysis(client, admin_headers)
+    boundary_findings = [f for f in findings if f["source_asset_id"] == edge_router["id"] and f["target_asset_id"] == core_switch["id"]]
+    assert len(boundary_findings) == 1
+    finding = boundary_findings[0]
+    assert finding["protected"] is True
+    assert "path-fw" in finding["path_asset_names"]
+
+
+def test_generate_recommendation_overrides_pin_ownership_when_real_path_is_unprotected(client, admin_headers, asset_type, db_session):
+    """An org can own a firewall and still have an unprotected real path if that firewall
+    isn't actually positioned between the two zones - the generated diagram must reflect the
+    real path, not just "do we own a firewall somewhere in this PIN"."""
+    from app.domains.assets.models import AssetType
+
+    firewall_type = AssetType(code="firewall", name="Firewall")
+    db_session.add(firewall_type)
+    db_session.commit()
+
+    edge_router = _create_asset(client, admin_headers, asset_type, "path-edge-rtr-3", safe_pin="internet_edge")
+    core_switch = _create_asset(client, admin_headers, asset_type, "path-core-sw-3", safe_pin="campus_core")
+    # The firewall exists and is classified into internet_edge, but it's NOT wired into the
+    # real path between the router and the core switch - it's off connected to nothing
+    # relevant here, e.g. a management-only box.
+    _create_asset(
+        client, admin_headers, asset_type, "path-fw-unused", safe_pin="internet_edge", asset_type_id=str(firewall_type.id)
+    )
+    _link(client, admin_headers, edge_router["id"], core_switch["id"])
+
+    response = client.post(
+        "/api/v1/architecture-recommendations/safe", headers=admin_headers, json={"name": "SAFE Path Override Test"}
+    )
+    version_id = response.json()["data"]["version_id"]
+    graph = client.get(f"/api/v1/designs/versions/{version_id}", headers=admin_headers).json()["data"]
+
+    edge_components = [c for c in graph["components"] if c["properties"]["safe_pin"] == "internet_edge"]
+    recommended = {c["name"]: c["properties"] for c in edge_components if c["properties"]["recommended"]}
+    assert "Perimeter Firewall (NGFW)" in recommended
+    assert recommended["Perimeter Firewall (NGFW)"]["reason"] == "unprotected_path"
+
+
+def test_viewer_can_view_path_analysis(client, viewer_headers):
+    response = client.get("/api/v1/architecture-recommendations/safe/path-analysis", headers=viewer_headers)
+    assert response.status_code == 200

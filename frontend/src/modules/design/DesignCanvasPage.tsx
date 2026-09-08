@@ -10,6 +10,7 @@ import {
   useVersionGraph,
 } from "../../hooks/useDesigns";
 import { getErrorMessage } from "../../services/api";
+import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "badge-medium",
@@ -18,22 +19,6 @@ const STATUS_BADGE: Record<string, string> = {
   superseded: "badge-medium",
   archived: "badge-medium",
 };
-
-// Colors for the SAFE-zone-classified components an architecture recommendation generates
-// (see useArchitectureRecommendation / backend app/domains/architecture_recommendation).
-// Manually-added components have no safe_pin and fall back to the default color below.
-const SAFE_PIN_COLORS: Record<string, string> = {
-  cloud: "#0ea5e9",
-  internet_edge: "#dc2626",
-  wan: "#d97706",
-  branch: "#65a30d",
-  campus_core: "#4f46e5",
-  campus_distribution: "#7c3aed",
-  campus_access: "#a855f7",
-  data_center: "#0891b2",
-  management: "#64748b",
-};
-const DEFAULT_NODE_COLOR = "#334155";
 
 export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();

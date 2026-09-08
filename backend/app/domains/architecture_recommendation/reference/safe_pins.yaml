@@ -37,11 +37,11 @@ pins:
       - component_type: router
         name: "Internet Edge Router"
         matches_asset_type_codes: [router]
-        matches_keywords: [edge, internet, isp, peering]
+        matches_keywords: [isp, peering, "edge router", "internet router", "border router"]
       - component_type: firewall
         name: "Perimeter Firewall (NGFW)"
         matches_asset_type_codes: [firewall]
-        matches_keywords: [perimeter, edge, external, internet]
+        matches_keywords: [perimeter, ngfw, "edge firewall", "internet firewall", "external firewall"]
       - component_type: ips
         name: "Intrusion Prevention (IPS)"
         matches_asset_type_codes: []
@@ -69,15 +69,15 @@ pins:
       - component_type: router
         name: "Branch Router / SD-WAN Edge"
         matches_asset_type_codes: [router]
-        matches_keywords: [branch]
+        matches_keywords: ["branch router", "branch rtr", "sd-wan edge"]
       - component_type: firewall
         name: "Branch Firewall (UTM)"
         matches_asset_type_codes: [firewall]
-        matches_keywords: [branch]
+        matches_keywords: ["branch firewall", "branch fw", utm]
       - component_type: switch
         name: "Branch Switch"
         matches_asset_type_codes: [switch]
-        matches_keywords: [branch]
+        matches_keywords: ["branch switch", "branch sw"]
 
   - id: campus_core
     label: "Campus Core"
@@ -125,7 +125,7 @@ pins:
       - component_type: switch
         name: "DC Aggregation Switch"
         matches_asset_type_codes: [switch]
-        matches_keywords: ["data center", datacenter, aggregation, dc]
+        matches_keywords: ["data center", datacenter, aggregation]
       - component_type: firewall
         name: "Segmentation Firewall (East-West)"
         matches_asset_type_codes: [firewall]
@@ -165,3 +165,29 @@ pins:
         name: "Syslog / NTP Server"
         matches_asset_type_codes: []
         matches_keywords: [syslog, ntp]
+
+# Boundaries between PINs that SAFE expects a security capability to be enforced on - used by
+# the path analysis engine (app/domains/architecture_recommendation/service.py) to check
+# whether the REAL topology (actual TopologyLink connectivity between classified assets, not
+# just "do we own one of these somewhere") actually has that capability sitting on the path
+# between the two zones. `requires_capability` matches a component_type used somewhere above in
+# recommended_components (matching criteria are merged across every PIN that defines it).
+security_boundaries:
+  - between: [internet_edge, campus_core]
+    requires_capability: firewall
+    severity: critical
+  - between: [internet_edge, cloud]
+    requires_capability: firewall
+    severity: high
+  - between: [internet_edge, wan]
+    requires_capability: firewall
+    severity: medium
+  - between: [wan, branch]
+    requires_capability: firewall
+    severity: medium
+  - between: [campus_core, data_center]
+    requires_capability: firewall
+    severity: high
+  - between: [campus_distribution, campus_access]
+    requires_capability: nac
+    severity: low

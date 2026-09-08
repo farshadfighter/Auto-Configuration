@@ -10,6 +10,33 @@ from app.domains.design import service as design_service
 router = APIRouter()
 
 
+@router.get("/architecture-recommendations/safe/path-analysis", response_model=None)
+def get_path_analysis(db: DbSession, current_user=Depends(require_permission("topology.view"))):
+    """Real, on-demand analysis: walks the actual topology graph between assets classified
+    into adjacent SAFE zones and reports whether a real security device sits on the shortest
+    real path between them. Stateless (recomputed every call) - see service.analyze_real_paths.
+    """
+    findings = service.analyze_real_paths(db)
+    return success(
+        [
+            {
+                "pin_a": f.pin_a,
+                "pin_b": f.pin_b,
+                "source_asset_id": str(f.source_asset_id),
+                "source_asset_name": f.source_asset_name,
+                "target_asset_id": str(f.target_asset_id),
+                "target_asset_name": f.target_asset_name,
+                "path_asset_ids": [str(a) for a in f.path_asset_ids],
+                "path_asset_names": f.path_asset_names,
+                "protected": f.protected,
+                "required_capability": f.required_capability,
+                "severity": f.severity,
+            }
+            for f in findings
+        ]
+    )
+
+
 @router.post("/architecture-recommendations/safe", response_model=None, status_code=status.HTTP_201_CREATED)
 def generate_safe_recommendation(
     payload: SafeRecommendationRequest, db: DbSession, current_user=Depends(require_permission("design.create"))
