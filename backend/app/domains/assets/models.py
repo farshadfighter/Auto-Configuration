@@ -1,7 +1,8 @@
+import datetime
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Table, Column, UniqueConstraint
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Table, Text, Column, UniqueConstraint
 from sqlalchemy.dialects.postgresql import INET, JSONB, MACADDR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +34,24 @@ class ManagedStatus(str, enum.Enum):
     MANAGED = "managed"
     UNMANAGED = "unmanaged"
     PENDING = "pending"
+
+
+class InformationClassification(str, enum.Enum):
+    """Confidentiality classification per an ISO/IEC 27001-style ISMS (Annex A.5.12/A.5.13) -
+    distinct from `criticality`, which rates operational/business impact rather than how
+    sensitive the information the asset holds or processes is."""
+
+    PUBLIC = "public"
+    INTERNAL = "internal"
+    CONFIDENTIAL = "confidential"
+    RESTRICTED = "restricted"
+
+
+class BackupFrequency(str, enum.Enum):
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
 
 
 class SafePin(str, enum.Enum):
@@ -100,6 +119,26 @@ class Zone(UUIDPKMixin, Base):
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     __table_args__ = (UniqueConstraint("site_id", "name", name="uq_zone_site_name"),)
+
+
+class ComplianceFramework(UUIDPKMixin, Base):
+    """Controlled reference list of regulatory/compliance frameworks an asset can be in scope
+    for (ISO 27001, PCI-DSS, GDPR, ...) - deliberately not free text, so "what's in scope for
+    PCI-DSS" is a real query an auditor can run, not a grep over a notes field."""
+
+    __tablename__ = "compliance_frameworks"
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+
+
+asset_compliance_scope_map = Table(
+    "asset_compliance_scope_map",
+    Base.metadata,
+    Column("asset_id", UUID(as_uuid=True), ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "compliance_framework_id", UUID(as_uuid=True), ForeignKey("compliance_frameworks.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
 
 class AssetEnvironment(UUIDPKMixin, Base):
@@ -177,9 +216,37 @@ class Asset(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
         Enum(SafePin, name="safe_pin", values_callable=_enum_values), nullable=True
     )
 
+    # ---- ISMS / ISO 27001 asset-register fields (Annex A.5.9 inventory, A.5.12/A.5.13
+    # classification, A.7.14 secure disposal) ----------------------------------------------
+    information_classification: Mapped[InformationClassification] = mapped_column(
+        Enum(InformationClassification, name="information_classification", values_callable=_enum_values),
+        default=InformationClassification.INTERNAL,
+        nullable=False,
+    )
+    # The accountable business owner (owner_id, above) is often distinct from whoever does the
+    # day-to-day technical administration - both nullable since discovery/CSV-onboarded assets
+    # frequently arrive before either is assigned; the asset register still records the gap.
+    custodian_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    acquired_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    warranty_expires_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    planned_retirement_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    decommissioned_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    disposal_method: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    disposal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    risk_assessment_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    risk_last_reviewed_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+
+    backup_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    backup_frequency: Mapped[BackupFrequency | None] = mapped_column(
+        Enum(BackupFrequency, name="backup_frequency", values_callable=_enum_values), nullable=True
+    )
+
     asset_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     tags: Mapped[list["Tag"]] = relationship(secondary=asset_tag_map)
+    compliance_scope: Mapped[list["ComplianceFramework"]] = relationship(secondary=asset_compliance_scope_map)
 
 
 class AssetInterface(UUIDPKMixin, Base):

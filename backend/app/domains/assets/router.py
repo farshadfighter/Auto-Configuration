@@ -1,10 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import Response
 
 from app.api.deps import DbSession, require_permission
+from app.core.errors import ValidationAppError
 from app.core.responses import success
-from app.domains.assets import service
+from app.domains.assets import csv_transfer, service
 from app.domains.assets.schemas import (
     AssetCreate,
     AssetOut,
@@ -13,6 +15,7 @@ from app.domains.assets.schemas import (
     AssetTypeCreate,
     AssetTypeOut,
     AssetUpdate,
+    ComplianceFrameworkOut,
 )
 from app.domains.audit.service import record_audit_event
 
@@ -23,6 +26,12 @@ router = APIRouter()
 def list_asset_types(db: DbSession, current_user=Depends(require_permission("asset.view"))):
     asset_types = service.list_asset_types(db)
     return success([AssetTypeOut.model_validate(t).model_dump(mode="json") for t in asset_types])
+
+
+@router.get("/compliance-frameworks", response_model=None)
+def list_compliance_frameworks(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    frameworks = service.list_compliance_frameworks(db)
+    return success([ComplianceFrameworkOut.model_validate(f).model_dump(mode="json") for f in frameworks])
 
 
 @router.post("/asset-types", response_model=None, status_code=status.HTTP_201_CREATED)
@@ -72,6 +81,49 @@ def create_asset(payload: AssetCreate, db: DbSession, current_user=Depends(requi
     )
     db.commit()
     return success(AssetOut.model_validate(asset).model_dump(mode="json"))
+
+
+@router.get("/assets/export/csv", response_model=None)
+def export_assets_csv(
+    db: DbSession,
+    site_id: uuid.UUID | None = None,
+    environment_id: uuid.UUID | None = None,
+    managed: str | None = None,
+    status_filter: str | None = None,
+    search: str | None = None,
+    current_user=Depends(require_permission("asset.view")),
+):
+    assets = service.list_assets_for_export(
+        db, site_id=site_id, environment_id=environment_id, managed=managed, status=status_filter, search=search
+    )
+    csv_content = csv_transfer.export_assets_to_csv(db, assets)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=assets_export.csv"},
+    )
+
+
+@router.post("/assets/import/csv", response_model=None)
+async def import_assets_csv(db: DbSession, current_user=Depends(require_permission("asset.create")), file: UploadFile = File(...)):
+    raw = await file.read()
+    try:
+        csv_content = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise ValidationAppError("INVALID_CSV_ENCODING", "CSV file must be UTF-8 encoded")
+
+    summary = csv_transfer.import_assets_from_csv(db, csv_content)
+    record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="ASSETS_CSV_IMPORTED",
+        object_type="asset_csv_import",
+        object_id=uuid.uuid4(),
+        result="SUCCESS",
+        new_value={"created": summary.created, "updated": summary.updated, "error_count": len(summary.errors)},
+    )
+    db.commit()
+    return success({"created": summary.created, "updated": summary.updated, "errors": summary.errors})
 
 
 @router.get("/assets/{asset_id}", response_model=None)

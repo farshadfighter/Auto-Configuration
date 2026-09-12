@@ -1,9 +1,17 @@
+import datetime
 import uuid
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict, field_validator
 
-from app.domains.assets.models import AssetStatus, Criticality, ManagedStatus, SafePin
+from app.domains.assets.models import (
+    AssetStatus,
+    BackupFrequency,
+    Criticality,
+    InformationClassification,
+    ManagedStatus,
+    SafePin,
+)
 
 # psycopg returns INET/MACADDR columns as ipaddress/str-like objects rather than plain str;
 # coerce to str so the API always serializes them as strings.
@@ -36,9 +44,24 @@ class AssetBase(BaseModel):
     safe_pin: SafePin | None = None
     asset_metadata: dict | None = None
 
+    # ---- ISMS / ISO 27001 asset-register fields ----
+    information_classification: InformationClassification = InformationClassification.INTERNAL
+    custodian_id: uuid.UUID | None = None
+    acquired_at: datetime.date | None = None
+    warranty_expires_at: datetime.date | None = None
+    planned_retirement_at: datetime.date | None = None
+    decommissioned_at: datetime.date | None = None
+    disposal_method: str | None = None
+    disposal_notes: str | None = None
+    risk_assessment_ref: str | None = None
+    risk_last_reviewed_at: datetime.date | None = None
+    backup_required: bool = False
+    backup_frequency: BackupFrequency | None = None
+
 
 class AssetCreate(AssetBase):
     asset_code: str | None = None  # auto-generated when omitted
+    compliance_framework_codes: list[str] | None = None
 
 
 class AssetUpdate(BaseModel):
@@ -66,12 +89,41 @@ class AssetUpdate(BaseModel):
     safe_pin: SafePin | None = None
     asset_metadata: dict | None = None
 
+    information_classification: InformationClassification | None = None
+    custodian_id: uuid.UUID | None = None
+    acquired_at: datetime.date | None = None
+    warranty_expires_at: datetime.date | None = None
+    planned_retirement_at: datetime.date | None = None
+    decommissioned_at: datetime.date | None = None
+    disposal_method: str | None = None
+    disposal_notes: str | None = None
+    risk_assessment_ref: str | None = None
+    risk_last_reviewed_at: datetime.date | None = None
+    backup_required: bool | None = None
+    backup_frequency: BackupFrequency | None = None
+    compliance_framework_codes: list[str] | None = None
+
 
 class AssetOut(AssetBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     asset_code: str
     discovery_source: str | None = None
+    compliance_scope: list[str] = []
+
+    @field_validator("compliance_scope", mode="before")
+    @classmethod
+    def _compliance_scope_codes(cls, v):
+        if v and not isinstance(v[0], str):
+            return [item.code for item in v]
+        return v
+
+
+class ComplianceFrameworkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    code: str
+    name: str
 
 
 class AssetTypeCreate(BaseModel):

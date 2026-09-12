@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.db.models_registry import *  # noqa: F401,F403
 from app.db.session import SessionLocal
-from app.domains.assets.models import AssetType
+from app.domains.assets.models import AssetType, ComplianceFramework
 from app.domains.identity.models import Permission, Role, User
 
 # Baseline asset type catalog - without at least these, neither manual asset creation nor
@@ -33,6 +33,17 @@ DEFAULT_ASSET_TYPES: list[tuple[str, str, str]] = [
     ("domain_controller", "Domain Controller", "microsoft"),
     ("dns_server", "DNS Server", "microsoft"),
     ("dhcp_server", "DHCP Server", "microsoft"),
+]
+
+# Controlled compliance-framework catalog for the ISMS asset register's compliance_scope -
+# deliberately not free text (see app.domains.assets.models.ComplianceFramework).
+DEFAULT_COMPLIANCE_FRAMEWORKS: list[tuple[str, str]] = [
+    ("iso27001", "ISO/IEC 27001"),
+    ("pci_dss", "PCI-DSS"),
+    ("gdpr", "GDPR"),
+    ("hipaa", "HIPAA"),
+    ("soc2", "SOC 2"),
+    ("nist_csf", "NIST Cybersecurity Framework"),
 ]
 
 # Permission catalog - resource.action per spec section 75. Extend as new domains land.
@@ -174,6 +185,14 @@ def seed_asset_types(db: Session) -> None:
     db.flush()
 
 
+def seed_compliance_frameworks(db: Session) -> None:
+    existing = {f.code for f in db.scalars(select(ComplianceFramework))}
+    for code, name in DEFAULT_COMPLIANCE_FRAMEWORKS:
+        if code not in existing:
+            db.add(ComplianceFramework(code=code, name=name))
+    db.flush()
+
+
 def seed_bootstrap_admin(db: Session) -> None:
     username = os.environ.get("NGFABRIC_SEED_ADMIN_USERNAME", "admin")
     if db.scalar(select(User).where(User.username == username)):
@@ -203,6 +222,7 @@ def run() -> None:
         permissions = seed_permissions(db)
         seed_roles(db, permissions)
         seed_asset_types(db)
+        seed_compliance_frameworks(db)
         seed_bootstrap_admin(db)
         db.commit()
         print("[seed] Done.")

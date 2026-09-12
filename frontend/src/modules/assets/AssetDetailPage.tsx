@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useAsset, useAssetRelationships } from "../../hooks/useAssets";
+import { INFORMATION_CLASSIFICATION_LABELS, useAsset, useAssetRelationships } from "../../hooks/useAssets";
 import { useAssetBackups, useCreateBackup } from "../../hooks/useBackups";
 import { useAssetConfigurationVersions } from "../../hooks/useConfiguration";
+import { useUsers } from "../../hooks/useUsers";
 import { getErrorMessage } from "../../services/api";
 
 export function AssetDetailPage() {
@@ -13,10 +14,13 @@ export function AssetDetailPage() {
   const { data: backups } = useAssetBackups(assetId);
   const { data: versions } = useAssetConfigurationVersions(assetId);
   const createBackup = useCreateBackup(assetId ?? "");
+  const { data: users } = useUsers();
   const [technology, setTechnology] = useState("cisco_iosxe");
 
   if (isLoading) return <p>Loading...</p>;
   if (isError || !asset) return <p className="form-error">Asset not found.</p>;
+
+  const userName = (id: string | null) => (id ? (users?.find((u) => u.id === id)?.full_name ?? users?.find((u) => u.id === id)?.username ?? "—") : "—");
 
   return (
     <div>
@@ -39,6 +43,42 @@ export function AssetDetailPage() {
         <dd>{asset.status}</dd>
         <dt>Managed</dt>
         <dd>{asset.managed}</dd>
+      </dl>
+
+      <h2>ISMS / Compliance</h2>
+      <dl className="detail-grid">
+        <dt>Owner</dt>
+        <dd>{userName(asset.owner_id)}</dd>
+        <dt>Custodian</dt>
+        <dd>{userName(asset.custodian_id)}</dd>
+        <dt>Information classification</dt>
+        <dd>
+          <span className={`badge badge-${asset.information_classification === "restricted" ? "critical" : asset.information_classification === "confidential" ? "high" : asset.information_classification === "internal" ? "medium" : "low"}`}>
+            {INFORMATION_CLASSIFICATION_LABELS[asset.information_classification]}
+          </span>
+        </dd>
+        <dt>Compliance scope</dt>
+        <dd>{asset.compliance_scope.length > 0 ? asset.compliance_scope.join(", ") : "—"}</dd>
+        <dt>Acquired</dt>
+        <dd>{asset.acquired_at ?? "—"}</dd>
+        <dt>Warranty expires</dt>
+        <dd>{asset.warranty_expires_at ?? "—"}</dd>
+        <dt>Planned retirement</dt>
+        <dd>{asset.planned_retirement_at ?? "—"}</dd>
+        <dt>Decommissioned</dt>
+        <dd>{asset.decommissioned_at ?? "—"}</dd>
+        {asset.decommissioned_at && (
+          <>
+            <dt>Disposal method</dt>
+            <dd>{asset.disposal_method ?? "—"}</dd>
+          </>
+        )}
+        <dt>Risk assessment ref</dt>
+        <dd>{asset.risk_assessment_ref ?? "—"}</dd>
+        <dt>Risk last reviewed</dt>
+        <dd>{asset.risk_last_reviewed_at ?? "—"}</dd>
+        <dt>Backup policy</dt>
+        <dd>{asset.backup_required ? `Required (${asset.backup_frequency ?? "frequency not set"})` : "Not required"}</dd>
       </dl>
 
       <h2>Relationships</h2>

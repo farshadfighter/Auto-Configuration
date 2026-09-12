@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import INET, MACADDR
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
-from app.domains.assets.models import Asset, AssetRelationship, AssetType
+from app.domains.assets.models import Asset, AssetRelationship, AssetType, ComplianceFramework
 
 
 def _generate_asset_code() -> str:
@@ -23,6 +23,19 @@ def create_asset_type(db: Session, *, code: str, name: str, category: str | None
     db.add(asset_type)
     db.flush()
     return asset_type
+
+
+def list_compliance_frameworks(db: Session) -> list[ComplianceFramework]:
+    return list(db.scalars(select(ComplianceFramework).order_by(ComplianceFramework.name)))
+
+
+def resolve_compliance_frameworks(db: Session, codes: list[str]) -> list[ComplianceFramework]:
+    frameworks = list(db.scalars(select(ComplianceFramework).where(ComplianceFramework.code.in_(codes))))
+    found_codes = {f.code for f in frameworks}
+    unknown = set(codes) - found_codes
+    if unknown:
+        raise NotFoundError("COMPLIANCE_FRAMEWORK_NOT_FOUND", f"Unknown compliance framework code(s): {sorted(unknown)}")
+    return frameworks
 
 
 def find_duplicate(
@@ -57,8 +70,12 @@ def find_duplicate(
 def create_asset_record(db: Session, data: dict) -> Asset:
     """Inserts an asset with no duplicate check. Callers that already resolved a duplicate
     (e.g. discovery reconciliation) use this directly; API callers should use create_asset."""
+    data = dict(data)
     asset_code = data.pop("asset_code", None) or _generate_asset_code()
+    compliance_codes = data.pop("compliance_framework_codes", None)
     asset = Asset(asset_code=asset_code, **data)
+    if compliance_codes is not None:
+        asset.compliance_scope = resolve_compliance_frameworks(db, compliance_codes)
     db.add(asset)
     db.flush()
     return asset
@@ -121,8 +138,39 @@ def list_assets(
     return items, total
 
 
+def list_assets_for_export(
+    db: Session,
+    *,
+    site_id: uuid.UUID | None = None,
+    environment_id: uuid.UUID | None = None,
+    managed: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> list[Asset]:
+    """Same filters as list_assets, but no pagination - an export is expected to be complete,
+    not silently truncated to a page."""
+    query = select(Asset).where(Asset.deleted_at.is_(None))
+    if site_id:
+        query = query.where(Asset.site_id == site_id)
+    if environment_id:
+        query = query.where(Asset.environment_id == environment_id)
+    if managed:
+        query = query.where(Asset.managed == managed)
+    if status:
+        query = query.where(Asset.status == status)
+    if search:
+        like = f"%{search}%"
+        query = query.where(or_(Asset.name.ilike(like), Asset.hostname.ilike(like), Asset.asset_code.ilike(like)))
+    return list(db.scalars(query.order_by(Asset.asset_code)))
+
+
 def update_asset(db: Session, asset_id: uuid.UUID, data: dict) -> Asset:
     asset = get_asset(db, asset_id)
+    data = dict(data)
+    if "compliance_framework_codes" in data:
+        codes = data.pop("compliance_framework_codes")
+        if codes is not None:
+            asset.compliance_scope = resolve_compliance_frameworks(db, codes)
     for key, value in data.items():
         if value is not None:
             setattr(asset, key, value)
