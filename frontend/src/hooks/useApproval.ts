@@ -10,6 +10,18 @@ export interface ApprovalRequest {
   created_at: string;
 }
 
+export function useApprovalRequests(statusFilter?: string) {
+  return useQuery({
+    queryKey: ["approval", "requests", statusFilter],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<ApprovalRequest[]>>("/approval/requests", {
+        params: statusFilter ? { status_filter: statusFilter } : undefined,
+      });
+      return data.data;
+    },
+  });
+}
+
 export function useApprovalRequestForJob(jobId: string | undefined) {
   return useQuery({
     queryKey: ["approval", "requests", "job", jobId],
