@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAsset, useAssetRelationships } from "../../hooks/useAssets";
 import { useAssetBackups, useCreateBackup } from "../../hooks/useBackups";
 import { useAssetConfigurationVersions } from "../../hooks/useConfiguration";
@@ -7,6 +7,7 @@ import { getErrorMessage } from "../../services/api";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
+  const navigate = useNavigate();
   const { data: asset, isLoading, isError } = useAsset(assetId);
   const { data: relationships } = useAssetRelationships(assetId);
   const { data: backups } = useAssetBackups(assetId);
@@ -20,9 +21,12 @@ export function AssetDetailPage() {
   return (
     <div>
       <Link to="/assets">&larr; Back to assets</Link>
-      <h1>
-        {asset.name} <span className="muted">({asset.asset_code})</span>
-      </h1>
+      <div className="page-header">
+        <h1>
+          {asset.name} <span className="muted">({asset.asset_code})</span>
+        </h1>
+        <button onClick={() => navigate(`/design-configuration/jobs?target_asset_id=${asset.id}`)}>Configure</button>
+      </div>
 
       <dl className="detail-grid">
         <dt>Hostname</dt>

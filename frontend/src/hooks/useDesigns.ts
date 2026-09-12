@@ -61,6 +61,7 @@ export interface DesignComponent {
   name: string;
   properties: Record<string, unknown> | null;
   position: { x: number; y: number } | null;
+  asset_id: string | null;
 }
 
 export interface DesignRelationship {
@@ -86,7 +87,12 @@ export function useVersionGraph(versionId: string | undefined) {
 export function useAddComponent(versionId: string | undefined, designId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { component_type: string; name: string; position?: { x: number; y: number } }) => {
+    mutationFn: async (input: {
+      component_type: string;
+      name: string;
+      properties?: Record<string, unknown>;
+      position?: { x: number; y: number };
+    }) => {
       const { data } = await api.post<ApiSuccess<DesignComponent>>(`/designs/versions/${versionId}/components`, input);
       return data.data;
     },
@@ -94,6 +100,16 @@ export function useAddComponent(versionId: string | undefined, designId: string)
       queryClient.invalidateQueries({ queryKey: ["designs", "versions", versionId] });
       queryClient.invalidateQueries({ queryKey: ["designs", designId] });
     },
+  });
+}
+
+export function useMapComponentToAsset(versionId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { component_id: string; asset_id: string }) => {
+      await api.post(`/designs/components/${input.component_id}/map-asset`, { asset_id: input.asset_id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["designs", "versions", versionId] }),
   });
 }
 

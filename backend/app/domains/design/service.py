@@ -143,6 +143,17 @@ def get_version_graph(db: Session, version_id: uuid.UUID) -> tuple[list[DesignCo
     relationships = list(
         db.scalars(select(DesignRelationship).where(DesignRelationship.design_version_id == version_id))
     )
+
+    if components:
+        mappings = db.execute(
+            select(DesignAssetMapping.design_component_id, DesignAssetMapping.asset_id).where(
+                DesignAssetMapping.design_component_id.in_([c.id for c in components])
+            )
+        ).all()
+        asset_id_by_component = dict(mappings)
+        for component in components:
+            component.asset_id = asset_id_by_component.get(component.id)
+
     return components, relationships
 
 

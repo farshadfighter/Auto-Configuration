@@ -106,6 +106,21 @@ def test_map_component_to_asset(client, admin_headers, asset_type):
     )
     assert response.status_code == 200
 
+    # The graph response must surface the mapped asset_id so the frontend can build a
+    # "Configure this device" / "View Asset" deep link per node.
+    graph = client.get(f"/api/v1/designs/versions/{version_id}", headers=admin_headers).json()["data"]
+    mapped = next(c for c in graph["components"] if c["id"] == component["id"])
+    assert mapped["asset_id"] == asset["id"]
+
+    unmapped_component = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "switch", "name": "Access-1"},
+    ).json()["data"]
+    graph = client.get(f"/api/v1/designs/versions/{version_id}", headers=admin_headers).json()["data"]
+    unmapped = next(c for c in graph["components"] if c["id"] == unmapped_component["id"])
+    assert unmapped["asset_id"] is None
+
 
 def test_map_component_to_unknown_asset_returns_404_not_a_crash(client, admin_headers):
     design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Bad Asset Mapping"}).json()["data"]

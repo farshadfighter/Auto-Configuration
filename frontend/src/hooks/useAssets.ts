@@ -84,6 +84,21 @@ export function useAssetRelationships(assetId: string | undefined) {
   });
 }
 
+export function useCreateAssetRelationship() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { source_asset_id: string; target_asset_id: string; relationship_type: string }) => {
+      const { data } = await api.post<ApiSuccess<AssetRelationship>>("/assets/relationships", input);
+      return data.data;
+    },
+    onSuccess: (_, input) => {
+      queryClient.invalidateQueries({ queryKey: ["assets", input.source_asset_id, "relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["assets", input.target_asset_id, "relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["topology"] });
+    },
+  });
+}
+
 export interface CreateAssetInput {
   name: string;
   hostname?: string;

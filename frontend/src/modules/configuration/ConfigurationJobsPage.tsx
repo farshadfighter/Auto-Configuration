@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useAsset } from "../../hooks/useAssets";
 import { useConfigurationJobs, useCreateConfigurationJob } from "../../hooks/useConfiguration";
 import { getErrorMessage } from "../../services/api";
 
@@ -18,14 +19,23 @@ const STATUS_BADGE: Record<string, string> = {
 export function ConfigurationJobsPage() {
   const { data: jobs, isLoading, isError } = useConfigurationJobs();
   const createJob = useCreateConfigurationJob();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetAssetId = searchParams.get("target_asset_id") ?? undefined;
+  const { data: targetAsset } = useAsset(targetAssetId);
   const [name, setName] = useState("");
   const [justification, setJustification] = useState("");
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!name.trim() || !justification.trim()) return;
-    createJob.mutate({ name, justification_ref: justification });
+    const job = await createJob.mutateAsync({
+      name,
+      justification_ref: justification,
+      target_asset_ids: targetAssetId ? [targetAssetId] : undefined,
+    });
     setName("");
     setJustification("");
+    navigate(`/design-configuration/jobs/${job.id}`);
   }
 
   return (
@@ -33,6 +43,12 @@ export function ConfigurationJobsPage() {
       <div className="page-header">
         <h1>Configuration Jobs</h1>
       </div>
+
+      {targetAssetId && (
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Scoped to device: <strong>{targetAsset?.name ?? targetAssetId}</strong>
+        </p>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input placeholder="Job name" value={name} onChange={(e) => setName(e.target.value)} />

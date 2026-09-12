@@ -48,6 +48,7 @@ class ComponentOut(BaseModel):
     name: str
     properties: dict | None
     position: dict | None
+    asset_id: uuid.UUID | None = None
 
 
 class RelationshipCreate(BaseModel):
