@@ -1,0 +1,18 @@
+id: BP-MS-DHCP-001
+technology: microsoft_dhcp
+category: microsoft
+version: "1.0"
+severity: medium
+title: DHCP server has no failover partner configured
+description: >
+  A DHCP server without failover is a single point of failure for address assignment on
+  its scopes (spec section 31).
+applies_to:
+  - field: asset.asset_type_code
+    operator: equals
+    value: dhcp_server
+conditions:
+  - field: asset.metadata.failover_enabled
+    operator: not_equals
+    value: true
+recommendation: Configure DHCP failover with a partner server.

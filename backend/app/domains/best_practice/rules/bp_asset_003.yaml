@@ -1,0 +1,12 @@
+id: BP-ASSET-003
+technology: general
+category: asset_management
+version: "1.0"
+severity: low
+title: Asset has no site assigned
+description: Assets without a site cannot be grouped by location for maintenance windows or reporting.
+applies_to: []
+conditions:
+  - field: asset.site_id
+    operator: not_exists
+recommendation: Assign this asset to a site.

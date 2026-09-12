@@ -1,0 +1,18 @@
+id: BP-MS-DNS-001
+technology: microsoft_dns
+category: microsoft
+version: "1.0"
+severity: high
+title: DNS server is not configured for secure dynamic updates
+description: >
+  Unsecured dynamic DNS updates allow any client to register or overwrite records, which
+  is a spoofing and cache-poisoning risk (spec section 30).
+applies_to:
+  - field: asset.asset_type_code
+    operator: equals
+    value: dns_server
+conditions:
+  - field: asset.metadata.dynamic_update
+    operator: not_equals
+    value: secure
+recommendation: Set the DNS zone's dynamic update mode to Secure Only.

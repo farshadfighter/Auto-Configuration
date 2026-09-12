@@ -1,0 +1,17 @@
+id: BP-ASSET-002
+technology: general
+category: asset_management
+version: "1.0"
+severity: high
+title: Managed asset has no management IP address
+description: >
+  An asset marked as Managed must have a management IP address, or NGFabric cannot reach it
+  for fact collection, backup, or deployment.
+applies_to:
+  - field: asset.managed
+    operator: equals
+    value: managed
+conditions:
+  - field: asset.management_ip
+    operator: not_exists
+recommendation: Set a management IP address, or mark the asset Unmanaged until reachable.

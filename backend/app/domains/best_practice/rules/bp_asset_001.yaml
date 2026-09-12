@@ -1,0 +1,17 @@
+id: BP-ASSET-001
+technology: general
+category: asset_management
+version: "1.0"
+severity: medium
+title: Critical or high-criticality asset has no assigned owner
+description: >
+  Assets flagged High or Critical criticality should have an accountable owner so changes
+  and incidents have a clear point of contact.
+applies_to:
+  - field: asset.criticality
+    operator: in
+    value: [high, critical]
+conditions:
+  - field: asset.owner_id
+    operator: not_exists
+recommendation: Assign an owner to this asset.

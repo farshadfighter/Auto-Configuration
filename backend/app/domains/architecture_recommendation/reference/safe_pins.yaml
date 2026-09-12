@@ -1,0 +1,193 @@
+# Reference topology for the architecture recommendation engine, structured around Cisco
+# SAFE's "Places in the Network" (PIN) model - Internet/Edge, WAN, Campus (Core/Distribution/
+# Access), Data Center, Branch, Cloud - plus the cross-cutting Management & Security
+# Operations domain SAFE calls out as a Secure Domain rather than a PIN.
+#
+# IMPORTANT: this is an internally-authored approximation inspired by the publicly-documented
+# SAFE PIN concept, not a reproduction of Cisco's proprietary architecture guides (this
+# environment's network egress is restricted, so those guides could not be fetched and
+# verified against). Review the recommended component list per PIN against your actual
+# organizational standard before treating it as authoritative.
+#
+# `order` drives left-to-right column layout in the generated diagram. `matches_asset_type_codes`
+# and `matches_keywords` are how the engine decides an existing asset already satisfies a
+# recommended role (case-insensitive substring match against the asset's type code / role /
+# name) - anything unmatched is rendered as a recommended-but-missing component.
+
+pins:
+  - id: cloud
+    label: "Cloud"
+    order: 0
+    connects_to: [internet_edge]
+    recommended_components:
+      - component_type: cloud_gateway
+        name: "Cloud Security Gateway (CASB / SASE)"
+        matches_asset_type_codes: []
+        matches_keywords: [casb, sase, "cloud gateway", "cloud access"]
+      - component_type: firewall
+        name: "Cloud Firewall (Virtual NGFW)"
+        matches_asset_type_codes: [firewall]
+        matches_keywords: ["cloud firewall", "virtual firewall"]
+
+  - id: internet_edge
+    label: "Internet Edge"
+    order: 1
+    connects_to: [wan, campus_core]
+    recommended_components:
+      - component_type: router
+        name: "Internet Edge Router"
+        matches_asset_type_codes: [router]
+        matches_keywords: [isp, peering, "edge router", "internet router", "border router"]
+      - component_type: firewall
+        name: "Perimeter Firewall (NGFW)"
+        matches_asset_type_codes: [firewall]
+        matches_keywords: [perimeter, ngfw, "edge firewall", "internet firewall", "external firewall"]
+      - component_type: ips
+        name: "Intrusion Prevention (IPS)"
+        matches_asset_type_codes: []
+        matches_keywords: [ips, "intrusion prevention"]
+      - component_type: vpn_concentrator
+        name: "Remote Access VPN Concentrator"
+        matches_asset_type_codes: []
+        matches_keywords: [vpn, "remote access"]
+
+  - id: wan
+    label: "WAN"
+    order: 2
+    connects_to: [branch]
+    recommended_components:
+      - component_type: router
+        name: "WAN / SD-WAN Router"
+        matches_asset_type_codes: [router]
+        matches_keywords: [wan, "sd-wan", sdwan]
+
+  - id: branch
+    label: "Branch"
+    order: 3
+    connects_to: []
+    recommended_components:
+      - component_type: router
+        name: "Branch Router / SD-WAN Edge"
+        matches_asset_type_codes: [router]
+        matches_keywords: ["branch router", "branch rtr", "sd-wan edge"]
+      - component_type: firewall
+        name: "Branch Firewall (UTM)"
+        matches_asset_type_codes: [firewall]
+        matches_keywords: ["branch firewall", "branch fw", utm]
+      - component_type: switch
+        name: "Branch Switch"
+        matches_asset_type_codes: [switch]
+        matches_keywords: ["branch switch", "branch sw"]
+
+  - id: campus_core
+    label: "Campus Core"
+    order: 4
+    connects_to: [campus_distribution, data_center]
+    recommended_components:
+      - component_type: switch
+        name: "Core Switch (redundant pair)"
+        matches_asset_type_codes: [switch]
+        matches_keywords: [core]
+
+  - id: campus_distribution
+    label: "Campus Distribution"
+    order: 5
+    connects_to: [campus_access]
+    recommended_components:
+      - component_type: switch
+        name: "Distribution Switch"
+        matches_asset_type_codes: [switch]
+        matches_keywords: [distribution, dist]
+      - component_type: nac
+        name: "Network Access Control (802.1X)"
+        matches_asset_type_codes: []
+        matches_keywords: [nac, "802.1x", radius]
+
+  - id: campus_access
+    label: "Campus Access"
+    order: 6
+    connects_to: []
+    recommended_components:
+      - component_type: switch
+        name: "Access Switch"
+        matches_asset_type_codes: [switch]
+        matches_keywords: [access]
+      - component_type: wlc
+        name: "Wireless LAN Controller"
+        matches_asset_type_codes: []
+        matches_keywords: [wlc, wireless, wifi, "wi-fi"]
+
+  - id: data_center
+    label: "Data Center"
+    order: 7
+    connects_to: []
+    recommended_components:
+      - component_type: switch
+        name: "DC Aggregation Switch"
+        matches_asset_type_codes: [switch]
+        matches_keywords: ["data center", datacenter, aggregation]
+      - component_type: firewall
+        name: "Segmentation Firewall (East-West)"
+        matches_asset_type_codes: [firewall]
+        matches_keywords: [segmentation, "east-west", internal]
+      - component_type: ips
+        name: "Data Center IPS"
+        matches_asset_type_codes: []
+        matches_keywords: [ips, "intrusion prevention"]
+      - component_type: load_balancer
+        name: "Load Balancer / ADC"
+        matches_asset_type_codes: [load_balancer]
+        matches_keywords: ["load balancer", adc]
+      - component_type: server
+        name: "Application Servers"
+        matches_asset_type_codes: [server, domain_controller, dns_server, dhcp_server]
+        matches_keywords: [server]
+
+  - id: management
+    label: "Management & Security Operations"
+    order: 8
+    connects_to: []
+    cross_cutting: true
+    recommended_components:
+      - component_type: siem
+        name: "SIEM / Security Analytics"
+        matches_asset_type_codes: []
+        matches_keywords: [siem, analytics]
+      - component_type: aaa
+        name: "AAA / RADIUS Server"
+        matches_asset_type_codes: []
+        matches_keywords: [aaa, radius, tacacs]
+      - component_type: nms
+        name: "Network Management System"
+        matches_asset_type_codes: []
+        matches_keywords: [nms, monitoring]
+      - component_type: logging
+        name: "Syslog / NTP Server"
+        matches_asset_type_codes: []
+        matches_keywords: [syslog, ntp]
+
+# Boundaries between PINs that SAFE expects a security capability to be enforced on - used by
+# the path analysis engine (app/domains/architecture_recommendation/service.py) to check
+# whether the REAL topology (actual TopologyLink connectivity between classified assets, not
+# just "do we own one of these somewhere") actually has that capability sitting on the path
+# between the two zones. `requires_capability` matches a component_type used somewhere above in
+# recommended_components (matching criteria are merged across every PIN that defines it).
+security_boundaries:
+  - between: [internet_edge, campus_core]
+    requires_capability: firewall
+    severity: critical
+  - between: [internet_edge, cloud]
+    requires_capability: firewall
+    severity: high
+  - between: [internet_edge, wan]
+    requires_capability: firewall
+    severity: medium
+  - between: [wan, branch]
+    requires_capability: firewall
+    severity: medium
+  - between: [campus_core, data_center]
+    requires_capability: firewall
+    severity: high
+  - between: [campus_distribution, campus_access]
+    requires_capability: nac
+    severity: low

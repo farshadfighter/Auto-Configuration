@@ -1,0 +1,690 @@
+:root {
+  /* Brand - a Linear/Vercel-register indigo-violet, not a generic Bootstrap blue */
+  --color-primary: #5b5bd6;
+  --color-primary-hover: #4c4cc4;
+  --color-primary-active: #4040a8;
+  --color-primary-light: #eef0fd;
+  --color-primary-text: #4c4cc4;
+
+  /* Neutrals - a hair cooler/darker than slate so text reads near-black, like most
+     premium SaaS UIs, instead of the slightly "washed" default Tailwind slate. */
+  --slate-50: #fafafa;
+  --slate-100: #f4f4f6;
+  --slate-200: #e8e8ec;
+  --slate-300: #d3d3da;
+  --slate-400: #9d9da8;
+  --slate-500: #71717f;
+  --slate-600: #4b4b58;
+  --slate-700: #33333d;
+  --slate-800: #1d1d24;
+  --slate-900: #101014;
+  --slate-950: #08080b;
+
+  /* Semantic surfaces */
+  --color-bg: var(--slate-900);
+  --color-page-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: rgba(16, 16, 20, 0.08);
+  --color-border-strong: rgba(16, 16, 20, 0.14);
+  --color-text: var(--slate-900);
+  --color-text-secondary: var(--slate-600);
+  --color-muted: var(--slate-500);
+
+  /* Status */
+  --color-success: #16a34a;
+  --color-success-bg: #e6f6ea;
+  --color-success-text: #17803d;
+  --color-warning: #d97706;
+  --color-warning-bg: #fdf1dc;
+  --color-warning-text: #9a5b0a;
+  --color-danger: #e5484d;
+  --color-danger-bg: #fdeceb;
+  --color-danger-text: #cb2a2e;
+  --color-info: #2563eb;
+  --color-info-bg: #e8f0fe;
+  --color-info-text: #1d4ed8;
+
+  /* Metrics */
+  --sidebar-width: 240px;
+  --topbar-height: 56px;
+  --radius-sm: 7px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-xs: 0 1px 1px rgba(16, 16, 20, 0.03);
+  --shadow-sm: 0 1px 2px rgba(16, 16, 20, 0.04), 0 1px 1px rgba(16, 16, 20, 0.03);
+  --shadow-md: 0 6px 16px rgba(16, 16, 20, 0.07), 0 1px 3px rgba(16, 16, 20, 0.05);
+  --shadow-lg: 0 20px 48px rgba(16, 16, 20, 0.14), 0 4px 12px rgba(16, 16, 20, 0.06);
+  /* System font stack only - no external font CDN. This runs as an internal ops tool that
+     may sit behind a restrictive firewall, where a Google Fonts fetch can hang or fail
+     (confirmed in testing: the browser has no route to fonts.googleapis.com even though
+     curl does via a configured proxy) - not worth the risk for a marginal type upgrade. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, Menlo, monospace;
+
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 650;
+  letter-spacing: -0.021em;
+  color: var(--slate-900);
+}
+
+h1 {
+  font-size: 1.375rem;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+
+a {
+  color: var(--color-primary-text);
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------- Layout */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--slate-950);
+  color: var(--slate-400);
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 16px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 18px 18px;
+  font-weight: 650;
+  font-size: 1rem;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+}
+
+.sidebar-brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  list-style: none;
+  margin: 0;
+  padding: 2px 10px;
+  flex: 1;
+}
+
+.sidebar-group-label {
+  padding: 16px 12px 6px;
+  font-size: 0.65rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--slate-600);
+}
+
+.sidebar-nav li {
+  margin-bottom: 1px;
+}
+
+.sidebar-nav li.disabled {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  font-size: 0.825rem;
+  color: var(--slate-700);
+  cursor: not-allowed;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--slate-400);
+  text-decoration: none;
+  font-size: 0.825rem;
+  font-weight: 500;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.sidebar-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.sidebar-nav a.active {
+  color: #fff;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.sidebar-nav a.active svg {
+  color: #a5a8f2;
+  opacity: 1;
+}
+
+.sidebar-nav svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  height: var(--topbar-height);
+  background: var(--color-surface);
+  box-shadow: 0 1px 0 var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.825rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.topbar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.content {
+  padding: 24px 28px 32px;
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------ Login */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(91, 91, 214, 0.35), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.22), transparent 45%),
+    var(--slate-950);
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--color-surface);
+  padding: 36px 32px 32px;
+  border-radius: var(--radius-lg);
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.login-card h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  font-size: 1.3rem;
+}
+
+.login-card p.login-subtitle {
+  margin: -12px 0 4px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.login-card button {
+  margin-top: 6px;
+  padding: 11px;
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------- Form controls */
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: 0.875rem;
+}
+
+input,
+select,
+textarea {
+  padding: 7px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--slate-400);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.14);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--slate-100);
+  color: var(--slate-400);
+  cursor: not-allowed;
+}
+
+select {
+  cursor: pointer;
+}
+
+textarea {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+button {
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #ffffff;
+  font-weight: 550;
+  font-size: 0.825rem;
+  box-shadow: 0 1px 2px rgba(16, 16, 20, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+button:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.22);
+}
+
+button:disabled {
+  background: var(--slate-200);
+  color: var(--slate-400);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Secondary/ghost buttons: plain-text actions like "Cancel" or destructive-adjacent
+   actions get a neutral treatment instead of every button on the page shouting equally. */
+.topbar button,
+button.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+.topbar button:hover:not(:disabled),
+button.btn-secondary:hover:not(:disabled) {
+  background: var(--slate-50);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+button.btn-danger {
+  background: var(--color-danger);
+}
+
+button.btn-danger:hover:not(:disabled) {
+  background: #c8282d;
+}
+
+/* ------------------------------------------------------------------- Misc */
+
+.form-error {
+  color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(229, 72, 77, 0.18);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0 0 12px;
+  display: inline-block;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.search-input {
+  width: 300px;
+}
+
+/* ------------------------------------------------------------------ Table */
+
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 0.825rem;
+}
+
+.data-table thead th {
+  color: var(--color-muted);
+  font-weight: 650;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.1s ease;
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--slate-50);
+}
+
+.data-table a {
+  font-weight: 550;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.data-table a:hover {
+  color: var(--color-primary-text);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 22px 16px;
+  font-size: 0.85rem;
+}
+
+/* Standalone empty states (outside a table row) get their own contained box instead of
+   floating text with large padding and no visual boundary. */
+p.empty-state {
+  text-align: left;
+  background: var(--slate-50);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  margin: 0 0 16px;
+}
+
+/* ------------------------------------------------------------------ Badge */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  line-height: 1.6;
+}
+
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.badge-low {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.badge-medium {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.badge-high {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badge-critical {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* ------------------------------------------------------------------- Cards */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.kpi-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.kpi-tile:not(.disabled):hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-strong);
+}
+
+.kpi-tile.disabled {
+  opacity: 0.5;
+}
+
+.kpi-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--slate-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-label {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 22px 24px;
+  max-width: 640px;
+  box-shadow: var(--shadow-sm);
+}
+
+.detail-grid dt {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.detail-grid dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.muted {
+  color: var(--color-muted);
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+/* A bordered panel used for inline "Add X" forms scattered across pages
+   (Add Asset, Add Component, Add Configuration Object, ...). */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* React Flow canvases (Topology, Design) */
+.canvas-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
