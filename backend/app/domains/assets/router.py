@@ -16,6 +16,14 @@ from app.domains.assets.schemas import (
     AssetTypeOut,
     AssetUpdate,
     ComplianceFrameworkOut,
+    LocationCreate,
+    LocationOut,
+    OperatingSystemCreate,
+    OperatingSystemOut,
+    VendorCreate,
+    VendorOut,
+    ZoneCreate,
+    ZoneOut,
 )
 from app.domains.audit.service import record_audit_event
 
@@ -39,6 +47,60 @@ def create_asset_type(payload: AssetTypeCreate, db: DbSession, current_user=Depe
     asset_type = service.create_asset_type(db, code=payload.code, name=payload.name, category=payload.category)
     db.commit()
     return success(AssetTypeOut.model_validate(asset_type).model_dump(mode="json"))
+
+
+@router.get("/vendors", response_model=None)
+def list_vendors(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    vendors = service.list_vendors(db)
+    return success([VendorOut.model_validate(v).model_dump(mode="json") for v in vendors])
+
+
+@router.post("/vendors", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_vendor(payload: VendorCreate, db: DbSession, current_user=Depends(require_permission("asset.create"))):
+    vendor = service.create_vendor(db, name=payload.name)
+    db.commit()
+    return success(VendorOut.model_validate(vendor).model_dump(mode="json"))
+
+
+@router.get("/locations", response_model=None)
+def list_locations(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    locations = service.list_locations(db)
+    return success([LocationOut.model_validate(loc).model_dump(mode="json") for loc in locations])
+
+
+@router.post("/locations", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_location(payload: LocationCreate, db: DbSession, current_user=Depends(require_permission("asset.create"))):
+    location = service.create_location(db, name=payload.name, address=payload.address)
+    db.commit()
+    return success(LocationOut.model_validate(location).model_dump(mode="json"))
+
+
+@router.get("/zones", response_model=None)
+def list_zones(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    zones = service.list_zones(db)
+    return success([ZoneOut.model_validate(z).model_dump(mode="json") for z in zones])
+
+
+@router.post("/zones", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_zone(payload: ZoneCreate, db: DbSession, current_user=Depends(require_permission("asset.create"))):
+    zone = service.create_zone(db, name=payload.name, description=payload.description)
+    db.commit()
+    return success(ZoneOut.model_validate(zone).model_dump(mode="json"))
+
+
+@router.get("/operating-systems", response_model=None)
+def list_operating_systems(db: DbSession, current_user=Depends(require_permission("asset.view"))):
+    operating_systems = service.list_operating_systems(db)
+    return success([OperatingSystemOut.model_validate(o).model_dump(mode="json") for o in operating_systems])
+
+
+@router.post("/operating-systems", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_operating_system(
+    payload: OperatingSystemCreate, db: DbSession, current_user=Depends(require_permission("asset.create"))
+):
+    operating_system = service.create_operating_system(db, name=payload.name, vendor_id=payload.vendor_id)
+    db.commit()
+    return success(OperatingSystemOut.model_validate(operating_system).model_dump(mode="json"))
 
 
 @router.get("/assets", response_model=None)

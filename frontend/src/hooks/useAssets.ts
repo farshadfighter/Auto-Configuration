@@ -51,6 +51,10 @@ export interface Asset {
   name: string;
   hostname: string | null;
   asset_type_id: string;
+  vendor_id: string | null;
+  os_id: string | null;
+  location_id: string | null;
+  zone_id: string | null;
   management_ip: string | null;
   criticality: "low" | "medium" | "high" | "critical";
   status: "provisioning" | "active" | "inactive" | "decommissioned" | "unknown";
@@ -138,6 +142,10 @@ export interface CreateAssetInput {
   name: string;
   hostname?: string;
   asset_type_id: string;
+  vendor_id?: string;
+  os_id?: string;
+  location_id?: string;
+  zone_id?: string;
   management_ip?: string;
   criticality?: Asset["criticality"];
   status?: Asset["status"];
@@ -223,6 +231,124 @@ export function useImportAssetsCsv() {
       return data.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assets"] }),
+  });
+}
+
+export interface Vendor {
+  id: string;
+  name: string;
+}
+
+export function useVendors() {
+  return useQuery({
+    queryKey: ["vendors"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<Vendor[]>>("/vendors");
+      return data.data;
+    },
+  });
+}
+
+export function useCreateVendor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string }) => {
+      const { data } = await api.post<ApiSuccess<Vendor>>("/vendors", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vendors"] }),
+  });
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  address: string | null;
+}
+
+export function useLocations() {
+  return useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<Location[]>>("/locations");
+      return data.data;
+    },
+  });
+}
+
+export function useCreateLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; address?: string }) => {
+      const { data } = await api.post<ApiSuccess<Location>>("/locations", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["locations"] }),
+  });
+}
+
+export interface Zone {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export function useZones() {
+  return useQuery({
+    queryKey: ["zones"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<Zone[]>>("/zones");
+      return data.data;
+    },
+  });
+}
+
+export function useCreateZone() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; description?: string }) => {
+      const { data } = await api.post<ApiSuccess<Zone>>("/zones", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["zones"] }),
+  });
+}
+
+export interface OperatingSystem {
+  id: string;
+  name: string;
+  vendor_id: string | null;
+}
+
+export function useOperatingSystems() {
+  return useQuery({
+    queryKey: ["operating-systems"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiSuccess<OperatingSystem[]>>("/operating-systems");
+      return data.data;
+    },
+  });
+}
+
+export function useCreateOperatingSystem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; vendor_id?: string }) => {
+      const { data } = await api.post<ApiSuccess<OperatingSystem>>("/operating-systems", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["operating-systems"] }),
+  });
+}
+
+export function useCreateAssetType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { code: string; name: string; category?: string }) => {
+      const { data } = await api.post<ApiSuccess<AssetType>>("/asset-types", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["asset-types"] }),
   });
 }
 
