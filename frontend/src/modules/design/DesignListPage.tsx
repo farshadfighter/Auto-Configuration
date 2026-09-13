@@ -21,7 +21,10 @@ export function DesignListPage() {
   function handleGenerateSafe() {
     if (!safeName.trim()) return;
     generateSafe.mutate(safeName.trim(), {
-      onSuccess: (result) => navigate(`/design-configuration/designs/${result.design_id}`),
+      onSuccess: (result) =>
+        navigate(`/design-configuration/designs/${result.design_id}`, {
+          state: { scaleGaps: result.scale_gaps, locationGaps: result.location_gaps },
+        }),
     });
   }
 

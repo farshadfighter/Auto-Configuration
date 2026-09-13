@@ -15,11 +15,24 @@ REFERENCE_DIR = Path(__file__).parent / "reference"
 
 
 @dataclass
+class ScaleRule:
+    """Drives a capacity/redundancy gap instead of a plain present/absent check. `metric_pin`
+    (defaults to the component's own pin) names the PIN whose classified-asset count is the
+    scale driver; `per` recommends one more instance for every `per` assets in that PIN;
+    `redundancy_min` is the floor once the metric PIN has any assets at all."""
+
+    metric_pin: str | None = None
+    per: int | None = None
+    redundancy_min: int = 1
+
+
+@dataclass
 class RecommendedComponent:
     component_type: str
     name: str
     matches_asset_type_codes: list[str] = field(default_factory=list)
     matches_keywords: list[str] = field(default_factory=list)
+    scale: ScaleRule | None = None
 
 
 @dataclass
@@ -30,6 +43,7 @@ class PinDefinition:
     connects_to: list[str]
     recommended_components: list[RecommendedComponent]
     cross_cutting: bool = False
+    per_location: bool = False
 
 
 @dataclass
@@ -54,6 +68,13 @@ def load_pins() -> list[PinDefinition]:
                 name=c["name"],
                 matches_asset_type_codes=c.get("matches_asset_type_codes", []),
                 matches_keywords=c.get("matches_keywords", []),
+                scale=ScaleRule(
+                    metric_pin=c["scale"].get("metric_pin"),
+                    per=c["scale"].get("per"),
+                    redundancy_min=c["scale"].get("redundancy_min", 1),
+                )
+                if c.get("scale")
+                else None,
             )
             for c in p["recommended_components"]
         ]
@@ -65,9 +86,22 @@ def load_pins() -> list[PinDefinition]:
                 connects_to=p.get("connects_to", []),
                 recommended_components=components,
                 cross_cutting=p.get("cross_cutting", False),
+                per_location=p.get("per_location", False),
             )
         )
     return sorted(pins, key=lambda pin: pin.order)
+
+
+def required_instance_count(rule: ScaleRule, metric_asset_count: int) -> int:
+    """How many instances of a scale-ruled component should exist given the current size of its
+    metric PIN. Zero once the metric PIN has no classified assets at all (nothing to protect
+    yet); otherwise the redundancy floor, raised further if `per` scaling calls for more."""
+    if metric_asset_count <= 0:
+        return 0
+    required = rule.redundancy_min
+    if rule.per:
+        required = max(required, -(-metric_asset_count // rule.per))  # ceil division
+    return required
 
 
 def load_security_boundaries() -> list[SecurityBoundary]:
