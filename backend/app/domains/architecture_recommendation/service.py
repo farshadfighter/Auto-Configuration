@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domains.architecture_recommendation import engine
-from app.domains.assets.models import Asset, AssetRole, AssetType
+from app.domains.assets.models import Asset, AssetRole, AssetType, Location
 from app.domains.design import service as design_service
 from app.domains.design.models import ArchitectureDesign, DesignAssetMapping, DesignComponent, DesignMode, DesignRelationship
 from app.domains.topology import service as topology_service
@@ -150,6 +150,130 @@ def analyze_real_paths(db: Session, *, max_hops: int = DEFAULT_MAX_HOPS) -> list
     return findings
 
 
+def _satisfying_count(pin_assets: list[tuple[Asset, str, str | None]], component: engine.RecommendedComponent) -> int:
+    return sum(
+        1
+        for asset, type_code, role_name in pin_assets
+        if engine.asset_satisfies_component(component, asset_type_code=type_code, role_name=role_name, asset_name=asset.name)
+    )
+
+
+@dataclass
+class ScaleGapFinding:
+    """A capacity/redundancy shortfall: this PIN needs `required_count` instances of a
+    component given the current size of `metric_pin`, but only `existing_count` actually
+    satisfy it (see engine.ScaleRule)."""
+
+    pin: str
+    pin_label: str
+    component_type: str
+    component_name: str
+    metric_pin: str
+    metric_asset_count: int
+    existing_count: int
+    required_count: int
+
+
+def compute_scale_gaps(
+    db: Session,
+    assets_by_pin: dict[str, list[tuple[Asset, str, str | None]]] | None = None,
+    unprotected_by_pin: dict[str, set[str]] | None = None,
+) -> list[ScaleGapFinding]:
+    """For every recommended component with a `scale` rule, compares how many instances exist
+    against how many the current network size (classified-asset count in the rule's metric PIN)
+    calls for. Independent of the plain per-PIN presence check generate_recommendation otherwise
+    does - this is what makes recommendations scale with how big the network actually is.
+
+    A component real path analysis has proven unprotected (see analyze_real_paths) is counted
+    as zero existing instances here too, even if one technically exists somewhere in the PIN -
+    same principle as the plain presence check: it isn't actually functioning as protection."""
+    pins = engine.load_pins()
+    assets_by_pin = assets_by_pin if assets_by_pin is not None else _assets_by_pin(db)
+    unprotected_by_pin = unprotected_by_pin if unprotected_by_pin is not None else {}
+
+    findings: list[ScaleGapFinding] = []
+    for pin in pins:
+        pin_assets = assets_by_pin.get(pin.id, [])
+        unprotected_here = unprotected_by_pin.get(pin.id, set())
+        for rc in pin.recommended_components:
+            if not rc.scale:
+                continue
+            metric_pin_id = rc.scale.metric_pin or pin.id
+            metric_count = len(assets_by_pin.get(metric_pin_id, []))
+            required = engine.required_instance_count(rc.scale, metric_count)
+            existing = 0 if rc.component_type in unprotected_here else _satisfying_count(pin_assets, rc)
+            if required > existing:
+                findings.append(
+                    ScaleGapFinding(
+                        pin=pin.id,
+                        pin_label=pin.label,
+                        component_type=rc.component_type,
+                        component_name=rc.name,
+                        metric_pin=metric_pin_id,
+                        metric_asset_count=metric_count,
+                        existing_count=existing,
+                        required_count=required,
+                    )
+                )
+    return findings
+
+
+@dataclass
+class LocationGapFinding:
+    """A per-location coverage gap: this Location has at least one asset classified into a
+    `per_location` PIN (e.g. Branch), but is missing one of that PIN's recommended components -
+    a gap another site elsewhere having that component does not fill."""
+
+    pin: str
+    pin_label: str
+    location_id: uuid.UUID
+    location_name: str
+    missing_component_type: str
+    missing_component_name: str
+
+
+def compute_location_gaps(db: Session, contexts: dict[uuid.UUID, AssetContext] | None = None) -> list[LocationGapFinding]:
+    per_location_pins = [pin for pin in engine.load_pins() if pin.per_location]
+    if not per_location_pins:
+        return []
+    contexts = contexts if contexts is not None else _asset_contexts(db)
+    location_names = {loc.id: loc.name for loc in db.scalars(select(Location))}
+
+    findings: list[LocationGapFinding] = []
+    for pin in per_location_pins:
+        by_location: dict[uuid.UUID, list[AssetContext]] = {}
+        for ctx in contexts.values():
+            if ctx.asset.safe_pin is None or ctx.asset.safe_pin.value != pin.id or ctx.asset.location_id is None:
+                continue
+            by_location.setdefault(ctx.asset.location_id, []).append(ctx)
+
+        for location_id, location_contexts in by_location.items():
+            satisfied_component_types: set[str] = set()
+            for ctx in location_contexts:
+                for rc in pin.recommended_components:
+                    if rc.component_type in satisfied_component_types:
+                        continue
+                    if engine.asset_satisfies_component(
+                        rc, asset_type_code=ctx.type_code, role_name=ctx.role_name, asset_name=ctx.asset.name
+                    ):
+                        satisfied_component_types.add(rc.component_type)
+
+            for rc in pin.recommended_components:
+                if rc.component_type in satisfied_component_types:
+                    continue
+                findings.append(
+                    LocationGapFinding(
+                        pin=pin.id,
+                        pin_label=pin.label,
+                        location_id=location_id,
+                        location_name=location_names.get(location_id, "Unknown location"),
+                        missing_component_type=rc.component_type,
+                        missing_component_name=rc.name,
+                    )
+                )
+    return findings
+
+
 def _unprotected_capabilities_by_pin(path_findings: list[PathFinding]) -> dict[str, set[str]]:
     """pin_id -> set of capability types that have at least one real, unprotected boundary
     crossing at that pin and no protected crossing to offset it. Used to override the naive
@@ -169,7 +293,9 @@ def _unprotected_capabilities_by_pin(path_findings: list[PathFinding]) -> dict[s
     return by_pin
 
 
-def generate_recommendation(db: Session, *, name: str, created_by: uuid.UUID | None) -> ArchitectureDesign:
+def generate_recommendation(
+    db: Session, *, name: str, created_by: uuid.UUID | None
+) -> tuple[ArchitectureDesign, list[ScaleGapFinding], list[LocationGapFinding]]:
     """Builds a new Architecture Design pre-populated with a SAFE-inspired reference topology,
     grounded in whatever of the current asset inventory has been classified by Place in the
     Network (Asset.safe_pin). Existing assets appear as real components (mapped back to the
@@ -180,11 +306,21 @@ def generate_recommendation(db: Session, *, name: str, created_by: uuid.UUID | N
     capability (firewall, NAC) that guards a boundary to another PIN: real path analysis
     (analyze_real_paths) can show that capability isn't actually positioned on the real path
     between the two zones, in which case it's still rendered as a recommended/missing gap even
-    though an asset of that type technically exists somewhere in the PIN."""
+    though an asset of that type technically exists somewhere in the PIN. Components with a
+    `scale` rule (see engine.ScaleRule) go further: instead of a single dashed component once
+    unsatisfied, as many dashed instances are rendered as the current network size still calls
+    for (e.g. a 2nd Core Switch once the Access layer has grown past its redundancy threshold).
+
+    Returns the design alongside the scale-capacity and per-location coverage findings computed
+    along the way, so callers (the API response) can surface them as a standalone gap report
+    without recomputing the same asset/pin grouping twice."""
     pins = engine.load_pins()
     assets_by_pin = _assets_by_pin(db)
     path_findings = analyze_real_paths(db)
     unprotected_by_pin = _unprotected_capabilities_by_pin(path_findings)
+    scale_gaps = compute_scale_gaps(db, assets_by_pin, unprotected_by_pin)
+    scale_gap_by_component = {(g.pin, g.component_type): g for g in scale_gaps}
+    location_gaps = compute_location_gaps(db)
 
     design = design_service.create_design(
         db,
@@ -232,22 +368,34 @@ def generate_recommendation(db: Session, *, name: str, created_by: uuid.UUID | N
                     satisfied_component_types.add(rc.component_type)
 
         for rc in pin.recommended_components:
-            if rc.component_type in satisfied_component_types:
-                continue
-            properties = {"safe_pin": pin.id, "recommended": True}
-            if rc.component_type in unprotected_here:
-                properties["reason"] = "unprotected_path"
-            component = DesignComponent(
-                design_version_id=version.id,
-                component_type=rc.component_type,
-                name=rc.name,
-                properties=properties,
-                position={"x": pin.order * COLUMN_WIDTH, "y": row * ROW_HEIGHT},
-            )
-            db.add(component)
-            db.flush()
-            component_by_pin_first.setdefault(pin.id, component.id)
-            row += 1
+            if rc.scale:
+                # Scale-ruled components render as many dashed instances as the current gap
+                # calls for (possibly more than one, or zero even though unsatisfied if the
+                # metric PIN has no assets yet) instead of a single boolean present/absent check.
+                gap = scale_gap_by_component.get((pin.id, rc.component_type))
+                instances_needed = gap.required_count - gap.existing_count if gap else 0
+                reason = "unprotected_path" if rc.component_type in unprotected_here else "capacity_gap"
+            else:
+                if rc.component_type in satisfied_component_types:
+                    continue
+                instances_needed = 1
+                reason = "unprotected_path" if rc.component_type in unprotected_here else None
+
+            for _ in range(max(instances_needed, 0)):
+                properties = {"safe_pin": pin.id, "recommended": True}
+                if reason:
+                    properties["reason"] = reason
+                component = DesignComponent(
+                    design_version_id=version.id,
+                    component_type=rc.component_type,
+                    name=rc.name,
+                    properties=properties,
+                    position={"x": pin.order * COLUMN_WIDTH, "y": row * ROW_HEIGHT},
+                )
+                db.add(component)
+                db.flush()
+                component_by_pin_first.setdefault(pin.id, component.id)
+                row += 1
 
     for pin in pins:
         source_id = component_by_pin_first.get(pin.id)
@@ -267,4 +415,4 @@ def generate_recommendation(db: Session, *, name: str, created_by: uuid.UUID | N
             )
 
     db.flush()
-    return design
+    return design, scale_gaps, location_gaps

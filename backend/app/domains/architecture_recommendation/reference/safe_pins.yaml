@@ -13,6 +13,19 @@
 # and `matches_keywords` are how the engine decides an existing asset already satisfies a
 # recommended role (case-insensitive substring match against the asset's type code / role /
 # name) - anything unmatched is rendered as a recommended-but-missing component.
+#
+# `scale` (optional, per recommended_component) drives capacity/redundancy gaps instead of a
+# plain present/absent check: `metric_pin` (defaults to this component's own pin) names the PIN
+# whose classified-asset count is the scale driver, `per` recommends one more instance for
+# every `per` assets in that PIN, and `redundancy_min` is the floor once the metric PIN has any
+# assets at all (e.g. "always want a redundant pair once this zone is in use"). These thresholds
+# are illustrative heuristics, not a reproduction of an official Cisco sizing guide (see the
+# disclaimer above) - tune them to your own organizational standard.
+#
+# `per_location` (optional, per pin) analyzes that PIN's component coverage separately for each
+# Location that has at least one asset classified into it, instead of once org-wide - e.g. every
+# branch site should have its own router/firewall/switch, and a site missing one is a gap even
+# if some other branch elsewhere has one.
 
 pins:
   - id: cloud
@@ -42,6 +55,8 @@ pins:
         name: "Perimeter Firewall (NGFW)"
         matches_asset_type_codes: [firewall]
         matches_keywords: [perimeter, ngfw, "edge firewall", "internet firewall", "external firewall"]
+        scale:
+          redundancy_min: 2
       - component_type: ips
         name: "Intrusion Prevention (IPS)"
         matches_asset_type_codes: []
@@ -65,6 +80,7 @@ pins:
     label: "Branch"
     order: 3
     connects_to: []
+    per_location: true
     recommended_components:
       - component_type: router
         name: "Branch Router / SD-WAN Edge"
@@ -88,6 +104,10 @@ pins:
         name: "Core Switch (redundant pair)"
         matches_asset_type_codes: [switch]
         matches_keywords: [core]
+        scale:
+          metric_pin: campus_access
+          per: 30
+          redundancy_min: 2
 
   - id: campus_distribution
     label: "Campus Distribution"
@@ -130,6 +150,8 @@ pins:
         name: "Segmentation Firewall (East-West)"
         matches_asset_type_codes: [firewall]
         matches_keywords: [segmentation, "east-west", internal]
+        scale:
+          redundancy_min: 2
       - component_type: ips
         name: "Data Center IPS"
         matches_asset_type_codes: []
@@ -138,6 +160,9 @@ pins:
         name: "Load Balancer / ADC"
         matches_asset_type_codes: [load_balancer]
         matches_keywords: ["load balancer", adc]
+        scale:
+          per: 10
+          redundancy_min: 1
       - component_type: server
         name: "Application Servers"
         matches_asset_type_codes: [server, domain_controller, dns_server, dhcp_server]

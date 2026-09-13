@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   useAddComponent,
   useAddRelationship,
@@ -23,10 +23,72 @@ import {
   type DesignComponent,
 } from "../../hooks/useDesigns";
 import { useAssetTypes, useCreateAsset, useCreateAssetRelationship, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
+import type { LocationGapFinding, ScaleGapFinding } from "../../hooks/useArchitectureRecommendation";
 import { getErrorMessage } from "../../services/api";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
+
+function GapReportPanel({
+  scaleGaps,
+  locationGaps,
+  onDismiss,
+}: {
+  scaleGaps: ScaleGapFinding[];
+  locationGaps: LocationGapFinding[];
+  onDismiss: () => void;
+}) {
+  const locationGapsByLocation = new Map<string, { name: string; missing: string[] }>();
+  for (const g of locationGaps) {
+    const entry = locationGapsByLocation.get(g.location_id) ?? { name: g.location_name, missing: [] };
+    entry.missing.push(g.missing_component_name);
+    locationGapsByLocation.set(g.location_id, entry);
+  }
+
+  return (
+    <div className="panel" style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+        <strong>SAFE Scale &amp; Coverage Gap Report</strong>
+        <button className="btn-secondary" onClick={onDismiss} style={{ padding: "2px 8px" }}>
+          &times;
+        </button>
+      </div>
+
+      {scaleGaps.length === 0 && locationGaps.length === 0 && (
+        <p className="empty-state" style={{ marginTop: 8 }}>
+          No capacity or per-site coverage gaps found for the current network size.
+        </p>
+      )}
+
+      {scaleGaps.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Capacity / redundancy</span>
+          <ul style={{ marginTop: 4 }}>
+            {scaleGaps.map((g, i) => (
+              <li key={i}>
+                <strong>{g.pin_label}</strong>: needs {g.required_count}&times; {g.component_name} (have {g.existing_count}
+                {g.metric_pin === g.pin ? "" : `, based on ${g.metric_asset_count} asset(s) classified in ${g.metric_pin}`})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {locationGaps.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Per-site coverage</span>
+          <ul style={{ marginTop: 4 }}>
+            {Array.from(locationGapsByLocation.entries()).map(([locationId, entry]) => (
+              <li key={locationId}>
+                <strong>{entry.name}</strong>: missing {entry.missing.join(", ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "badge-medium",
@@ -48,6 +110,18 @@ interface PendingDevice {
 export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [gapReport, setGapReport] = useState<{ scaleGaps: ScaleGapFinding[]; locationGaps: LocationGapFinding[] } | null>(null);
+
+  useEffect(() => {
+    const navState = location.state as { scaleGaps?: ScaleGapFinding[]; locationGaps?: LocationGapFinding[] } | null;
+    if (!navState) return;
+    setGapReport({ scaleGaps: navState.scaleGaps ?? [], locationGaps: navState.locationGaps ?? [] });
+    // history.state (and so location.state) survives a reload, unlike component state - clear it
+    // from the history entry so the report is scoped to this visit only, not every reload.
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data: design, isError: designIsError } = useDesign(designId);
   const versionId = design?.latest_version.id;
   const { data: graph } = useVersionGraph(versionId);
@@ -210,6 +284,14 @@ export function DesignCanvasPage() {
           )}
         </div>
       </div>
+
+      {gapReport && (
+        <GapReportPanel
+          scaleGaps={gapReport.scaleGaps}
+          locationGaps={gapReport.locationGaps}
+          onDismiss={() => setGapReport(null)}
+        />
+      )}
 
       {approveDesign.isError && <p className="form-error">{getErrorMessage(approveDesign.error, "Could not approve design")}</p>}
       {createNewVersion.isError && (
