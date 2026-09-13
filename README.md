@@ -106,6 +106,15 @@ npm install
 npm run dev
 ```
 
+> **CORS note**: the backend only allows `http://localhost:5173` by default
+> (`Settings.cors_origins`). If you run the frontend dev server on a different port or host
+> (e.g. `npm run dev -- --port 5174`, or accessing it from another machine), login will fail
+> with a CORS error in the browser console until you set `NGFABRIC_CORS_ORIGINS` on the
+> backend to a JSON array including that origin, e.g.:
+> ```bash
+> export NGFABRIC_CORS_ORIGINS='["http://localhost:5174"]'
+> ```
+
 ## Tests
 
 ```bash
