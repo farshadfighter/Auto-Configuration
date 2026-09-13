@@ -47,6 +47,17 @@ export function useValidateTopology() {
   });
 }
 
+export function useCreateTopologyLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { source_node_id: string; destination_node_id: string; link_type?: string }) => {
+      const { data } = await api.post<ApiSuccess<TopologyLink>>("/topology/links", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["topology"] }),
+  });
+}
+
 export function useUpdateTopologyLayout() {
   const queryClient = useQueryClient();
   return useMutation({

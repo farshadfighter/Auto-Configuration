@@ -1,7 +1,13 @@
-import { Background, Controls, ReactFlow, type Edge, type Node, useEdgesState, useNodesState } from "@xyflow/react";
+import { Background, Controls, ReactFlow, type Connection, type Edge, type Node, useEdgesState, useNodesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useEffect, useState } from "react";
-import { useTopology, useUpdateTopologyLayout, useValidateTopology, type TopologyFinding } from "../../hooks/useTopology";
+import {
+  useCreateTopologyLink,
+  useTopology,
+  useUpdateTopologyLayout,
+  useValidateTopology,
+  type TopologyFinding,
+} from "../../hooks/useTopology";
 import { useAssets, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
 import { useSafePathAnalysis, type PathFinding } from "../../hooks/useArchitectureRecommendation";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
@@ -39,6 +45,7 @@ export function TopologyPage() {
   const { data: graph, isLoading } = useTopology();
   const validate = useValidateTopology();
   const updateLayout = useUpdateTopologyLayout();
+  const createLink = useCreateTopologyLink();
   const [findings, setFindings] = useState<TopologyFinding[] | null>(null);
   const [safeView, setSafeView] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -107,6 +114,11 @@ export function TopologyPage() {
     updateLayout.mutate([{ node_id: node.id, x: node.position.x, y: node.position.y }]);
   }
 
+  function handleConnect(connection: Connection) {
+    if (!connection.source || !connection.target) return;
+    createLink.mutate({ source_node_id: connection.source, destination_node_id: connection.target });
+  }
+
   const unprotected = safeView ? (pathFindings ?? []).filter((f) => !f.protected) : [];
   const usedPins = safeView
     ? Array.from(new Set((assetsResponse?.data ?? []).map((a) => a.safe_pin).filter((p): p is SafePin => Boolean(p))))
@@ -131,6 +143,7 @@ export function TopologyPage() {
 
       {validate.isError && <p className="form-error">{getErrorMessage(validate.error, "Validation failed")}</p>}
       {updateLayout.isError && <p className="form-error">{getErrorMessage(updateLayout.error, "Could not save node position")}</p>}
+      {createLink.isError && <p className="form-error">{getErrorMessage(createLink.error, "Could not create connection")}</p>}
       {safeView && pathAnalysisError && <p className="form-error">Could not analyze real network paths.</p>}
 
       {isLoading && <p>Loading...</p>}
@@ -195,6 +208,7 @@ export function TopologyPage() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={handleNodeDragStop}
+          onConnect={handleConnect}
           fitView
         >
           <Background />
