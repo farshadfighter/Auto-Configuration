@@ -140,6 +140,52 @@ class AssetTypeOut(BaseModel):
     category: str | None = None
 
 
+class VendorCreate(BaseModel):
+    name: str
+
+
+class VendorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+
+
+class LocationCreate(BaseModel):
+    name: str
+    address: str | None = None
+
+
+class LocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    address: str | None = None
+
+
+class ZoneCreate(BaseModel):
+    name: str
+    description: str | None = None
+
+
+class ZoneOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+
+
+class OperatingSystemCreate(BaseModel):
+    name: str
+    vendor_id: uuid.UUID | None = None
+
+
+class OperatingSystemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    name: str
+    vendor_id: uuid.UUID | None = None
+
+
 class AssetRelationshipCreate(BaseModel):
     source_asset_id: uuid.UUID
     target_asset_id: uuid.UUID

@@ -5,7 +5,16 @@ from sqlalchemy.dialects.postgresql import INET, MACADDR
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
-from app.domains.assets.models import Asset, AssetRelationship, AssetType, ComplianceFramework
+from app.domains.assets.models import (
+    Asset,
+    AssetRelationship,
+    AssetType,
+    ComplianceFramework,
+    Location,
+    OperatingSystem,
+    Vendor,
+    Zone,
+)
 
 
 def _generate_asset_code() -> str:
@@ -23,6 +32,62 @@ def create_asset_type(db: Session, *, code: str, name: str, category: str | None
     db.add(asset_type)
     db.flush()
     return asset_type
+
+
+def list_vendors(db: Session) -> list[Vendor]:
+    return list(db.scalars(select(Vendor).order_by(Vendor.name)))
+
+
+def create_vendor(db: Session, *, name: str) -> Vendor:
+    if db.scalar(select(Vendor).where(Vendor.name == name)):
+        raise ConflictError("VENDOR_NAME_EXISTS", f"Vendor '{name}' already exists")
+    vendor = Vendor(name=name)
+    db.add(vendor)
+    db.flush()
+    return vendor
+
+
+def list_locations(db: Session) -> list[Location]:
+    return list(db.scalars(select(Location).order_by(Location.name)))
+
+
+def create_location(db: Session, *, name: str, address: str | None) -> Location:
+    location = Location(name=name, address=address)
+    db.add(location)
+    db.flush()
+    return location
+
+
+def list_zones(db: Session) -> list[Zone]:
+    """Lists site-less "network zones" - a flat segmentation catalog (VLAN/security-zone
+    style) independent of the physical Site hierarchy, matching how the Asset Requirement UI
+    presents them. Zone.site_id stays null for entries created here."""
+    return list(db.scalars(select(Zone).where(Zone.site_id.is_(None)).order_by(Zone.name)))
+
+
+def create_zone(db: Session, *, name: str, description: str | None) -> Zone:
+    if db.scalar(select(Zone).where(Zone.name == name, Zone.site_id.is_(None))):
+        raise ConflictError("ZONE_NAME_EXISTS", f"Network zone '{name}' already exists")
+    zone = Zone(name=name, description=description, site_id=None)
+    db.add(zone)
+    db.flush()
+    return zone
+
+
+def list_operating_systems(db: Session) -> list[OperatingSystem]:
+    return list(db.scalars(select(OperatingSystem).order_by(OperatingSystem.name)))
+
+
+def create_operating_system(db: Session, *, name: str, vendor_id: uuid.UUID | None) -> OperatingSystem:
+    vendor_condition = OperatingSystem.vendor_id.is_(None) if vendor_id is None else OperatingSystem.vendor_id == vendor_id
+    if db.scalar(select(OperatingSystem).where(OperatingSystem.name == name, vendor_condition)):
+        raise ConflictError("OPERATING_SYSTEM_EXISTS", f"Operating system '{name}' already exists for this vendor")
+    if vendor_id and not db.get(Vendor, vendor_id):
+        raise NotFoundError("VENDOR_NOT_FOUND", f"Vendor {vendor_id} not found")
+    operating_system = OperatingSystem(name=name, vendor_id=vendor_id)
+    db.add(operating_system)
+    db.flush()
+    return operating_system
 
 
 def list_compliance_frameworks(db: Session) -> list[ComplianceFramework]:

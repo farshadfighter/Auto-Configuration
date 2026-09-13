@@ -3,6 +3,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { useCurrentUser } from "../hooks/useAuth";
 import { LoginPage } from "../modules/auth/LoginPage";
 import { AuditLogPage } from "../modules/audit/AuditLogPage";
+import { AssetRequirementPage } from "../modules/asset-requirement/AssetRequirementPage";
 import { AssetDetailPage } from "../modules/assets/AssetDetailPage";
 import { AssetListPage } from "../modules/assets/AssetListPage";
 import { DashboardPage } from "../modules/dashboard/DashboardPage";
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "/", element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard", element: <DashboardPage /> },
+          { path: "/asset-requirement", element: <AssetRequirementPage /> },
           { path: "/assets", element: <AssetListPage /> },
           { path: "/assets/:assetId", element: <AssetDetailPage /> },
           { path: "/discovery", element: <DiscoveryJobsPage /> },

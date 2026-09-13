@@ -3,6 +3,7 @@ import {
   BarChart3,
   GitCompare,
   LayoutDashboard,
+  ListChecks,
   PencilRuler,
   Rocket,
   ScrollText,
@@ -17,6 +18,7 @@ import { NavLink } from "react-router-dom";
 
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
+  assetRequirement: ListChecks,
   assets: Server,
   discovery: Search,
   topology: Waypoints,
@@ -43,6 +45,7 @@ const NAV_GROUPS: { label: string; items: { to: string; label: string; icon: str
   {
     label: "Inventory",
     items: [
+      { to: "/asset-requirement", label: "Asset Requirement", icon: "assetRequirement", enabled: true },
       { to: "/assets", label: "Assets", icon: "assets", enabled: true },
       { to: "/discovery", label: "Discovery", icon: "discovery", enabled: true },
       { to: "/topology", label: "Topology", icon: "topology", enabled: true },

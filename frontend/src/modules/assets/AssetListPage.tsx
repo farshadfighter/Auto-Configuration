@@ -9,6 +9,10 @@ import {
   useComplianceFrameworks,
   useCreateAsset,
   useImportAssetsCsv,
+  useLocations,
+  useOperatingSystems,
+  useVendors,
+  useZones,
   type CsvImportSummary,
   type InformationClassification,
   type SafePin,
@@ -25,10 +29,18 @@ const CRITICALITY_LABEL: Record<string, string> = {
 function AddAssetForm({ onDone }: { onDone: () => void }) {
   const { data: assetTypes, isLoading: assetTypesLoading, isError: assetTypesIsError } = useAssetTypes();
   const { data: complianceFrameworks } = useComplianceFrameworks();
+  const { data: vendors } = useVendors();
+  const { data: locations } = useLocations();
+  const { data: zones } = useZones();
+  const { data: operatingSystems } = useOperatingSystems();
   const createAsset = useCreateAsset();
   const [name, setName] = useState("");
   const [hostname, setHostname] = useState("");
   const [assetTypeId, setAssetTypeId] = useState("");
+  const [vendorId, setVendorId] = useState("");
+  const [osId, setOsId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [zoneId, setZoneId] = useState("");
   const [managementIp, setManagementIp] = useState("");
   const [criticality, setCriticality] = useState<"low" | "medium" | "high" | "critical">("medium");
   const [safePin, setSafePin] = useState<SafePin | "">("");
@@ -47,6 +59,10 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
         name: name.trim(),
         hostname: hostname.trim() || undefined,
         asset_type_id: assetTypeId,
+        vendor_id: vendorId || undefined,
+        os_id: osId || undefined,
+        location_id: locationId || undefined,
+        zone_id: zoneId || undefined,
         management_ip: managementIp.trim() || undefined,
         criticality,
         safe_pin: safePin || undefined,
@@ -86,6 +102,38 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
           {Object.entries(SAFE_PIN_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
+            </option>
+          ))}
+        </select>
+        <select value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+          <option value="">Vendor (optional)...</option>
+          {vendors?.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
+        <select value={osId} onChange={(e) => setOsId(e.target.value)}>
+          <option value="">Operating system (optional)...</option>
+          {operatingSystems?.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+          <option value="">Location (optional)...</option>
+          {locations?.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <select value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
+          <option value="">Network zone (optional)...</option>
+          {zones?.map((z) => (
+            <option key={z.id} value={z.id}>
+              {z.name}
             </option>
           ))}
         </select>
@@ -140,7 +188,9 @@ function AddAssetForm({ onDone }: { onDone: () => void }) {
         {createAsset.isError && <span className="form-error">{getErrorMessage(createAsset.error, "Could not create asset")}</span>}
         {assetTypesIsError && <span className="form-error">Could not load asset types.</span>}
         {!assetTypesLoading && !assetTypesIsError && assetTypes?.length === 0 && (
-          <span className="form-error">No asset types configured yet - ask an administrator to add one.</span>
+          <span className="form-error">
+            No asset types configured yet - add one under <Link to="/asset-requirement">Asset Requirement</Link>.
+          </span>
         )}
       </div>
     </div>
