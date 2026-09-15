@@ -23,7 +23,11 @@ export function DesignListPage() {
     generateSafe.mutate(safeName.trim(), {
       onSuccess: (result) =>
         navigate(`/design-configuration/designs/${result.design_id}`, {
-          state: { scaleGaps: result.scale_gaps, locationGaps: result.location_gaps },
+          state: {
+            scaleGaps: result.scale_gaps,
+            locationGaps: result.location_gaps,
+            coverageWarnings: result.coverage_warnings,
+          },
         }),
     });
   }

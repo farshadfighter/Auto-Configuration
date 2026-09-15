@@ -23,7 +23,7 @@ import {
   type DesignComponent,
 } from "../../hooks/useDesigns";
 import { useAssetTypes, useCreateAsset, useCreateAssetRelationship, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
-import type { LocationGapFinding, ScaleGapFinding } from "../../hooks/useArchitectureRecommendation";
+import type { CoverageWarnings, LocationGapFinding, ScaleGapFinding } from "../../hooks/useArchitectureRecommendation";
 import { getErrorMessage } from "../../services/api";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
@@ -32,10 +32,12 @@ import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
 function GapReportPanel({
   scaleGaps,
   locationGaps,
+  coverageWarnings,
   onDismiss,
 }: {
   scaleGaps: ScaleGapFinding[];
   locationGaps: LocationGapFinding[];
+  coverageWarnings: CoverageWarnings;
   onDismiss: () => void;
 }) {
   const locationGapsByLocation = new Map<string, { name: string; missing: string[] }>();
@@ -44,6 +46,9 @@ function GapReportPanel({
     entry.missing.push(g.missing_component_name);
     locationGapsByLocation.set(g.location_id, entry);
   }
+
+  const unlocatedEntries = Object.entries(coverageWarnings.unlocated_counts).filter(([, count]) => count > 0);
+  const hasWarnings = coverageWarnings.unclassified_asset_count > 0 || unlocatedEntries.length > 0;
 
   return (
     <div className="panel" style={{ marginBottom: 20 }}>
@@ -86,6 +91,28 @@ function GapReportPanel({
           </ul>
         </div>
       )}
+
+      {hasWarnings && (
+        <div style={{ marginTop: 12, paddingTop: 8, borderTop: "1px dashed var(--color-border)" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+            Not included in this analysis
+          </span>
+          <ul style={{ marginTop: 4 }}>
+            {coverageWarnings.unclassified_asset_count > 0 && (
+              <li>
+                {coverageWarnings.unclassified_asset_count} asset(s) have no SAFE Zone set and were skipped entirely -
+                classify them (Assets &rarr; SAFE Zone column) to include them in this analysis.
+              </li>
+            )}
+            {unlocatedEntries.map(([pin, count]) => (
+              <li key={pin}>
+                {count} {SAFE_PIN_LABELS[pin as SafePin] ?? pin} asset(s) have no Location set and were excluded from
+                the per-site coverage check above.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -111,12 +138,24 @@ export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [gapReport, setGapReport] = useState<{ scaleGaps: ScaleGapFinding[]; locationGaps: LocationGapFinding[] } | null>(null);
+  const [gapReport, setGapReport] = useState<{
+    scaleGaps: ScaleGapFinding[];
+    locationGaps: LocationGapFinding[];
+    coverageWarnings: CoverageWarnings;
+  } | null>(null);
 
   useEffect(() => {
-    const navState = location.state as { scaleGaps?: ScaleGapFinding[]; locationGaps?: LocationGapFinding[] } | null;
+    const navState = location.state as {
+      scaleGaps?: ScaleGapFinding[];
+      locationGaps?: LocationGapFinding[];
+      coverageWarnings?: CoverageWarnings;
+    } | null;
     if (!navState) return;
-    setGapReport({ scaleGaps: navState.scaleGaps ?? [], locationGaps: navState.locationGaps ?? [] });
+    setGapReport({
+      scaleGaps: navState.scaleGaps ?? [],
+      locationGaps: navState.locationGaps ?? [],
+      coverageWarnings: navState.coverageWarnings ?? { unclassified_asset_count: 0, unlocated_counts: {} },
+    });
     // history.state (and so location.state) survives a reload, unlike component state - clear it
     // from the history entry so the report is scoped to this visit only, not every reload.
     navigate(location.pathname, { replace: true, state: null });
@@ -289,6 +328,7 @@ export function DesignCanvasPage() {
         <GapReportPanel
           scaleGaps={gapReport.scaleGaps}
           locationGaps={gapReport.locationGaps}
+          coverageWarnings={gapReport.coverageWarnings}
           onDismiss={() => setGapReport(null)}
         />
       )}
