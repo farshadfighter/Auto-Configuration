@@ -33,6 +33,19 @@ DEFAULT_ASSET_TYPES: list[tuple[str, str, str]] = [
     ("domain_controller", "Domain Controller", "microsoft"),
     ("dns_server", "DNS Server", "microsoft"),
     ("dhcp_server", "DHCP Server", "microsoft"),
+    # Matches recommended component types in the SAFE architecture recommendation reference
+    # (app/domains/architecture_recommendation/reference/safe_pins.yaml) - without these, those
+    # components could only ever be recognized via a free-text keyword match on the asset's
+    # name/role, never by picking the right Asset Type.
+    ("ips", "IPS / IDS", "security"),
+    ("vpn_concentrator", "VPN Concentrator", "security"),
+    ("nac", "Network Access Control", "security"),
+    ("wlc", "Wireless LAN Controller", "network"),
+    ("siem", "SIEM / Security Analytics", "security"),
+    ("aaa", "AAA / RADIUS Server", "security"),
+    ("nms", "Network Management System", "management"),
+    ("logging", "Syslog / NTP Server", "management"),
+    ("cloud_gateway", "Cloud Security Gateway (CASB / SASE)", "security"),
 ]
 
 # Controlled compliance-framework catalog for the ISMS asset register's compliance_scope -

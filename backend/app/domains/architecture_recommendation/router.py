@@ -34,6 +34,13 @@ def _serialize_location_gap(g: service.LocationGapFinding) -> dict:
     }
 
 
+def _serialize_coverage_warnings(w: service.CoverageWarnings) -> dict:
+    return {
+        "unclassified_asset_count": w.unclassified_asset_count,
+        "unlocated_counts": w.unlocated_counts,
+    }
+
+
 @router.get("/architecture-recommendations/safe/path-analysis", response_model=None)
 def get_path_analysis(db: DbSession, current_user=Depends(require_permission("topology.view"))):
     """Real, on-demand analysis: walks the actual topology graph between assets classified
@@ -67,10 +74,12 @@ def get_scale_gaps(db: DbSession, current_user=Depends(require_permission("topol
     design, so it can be checked without leaving a trail of designs behind."""
     scale_gaps = service.compute_scale_gaps(db)
     location_gaps = service.compute_location_gaps(db)
+    coverage_warnings = service.compute_coverage_warnings(db)
     return success(
         {
             "scale_gaps": [_serialize_scale_gap(g) for g in scale_gaps],
             "location_gaps": [_serialize_location_gap(g) for g in location_gaps],
+            "coverage_warnings": _serialize_coverage_warnings(coverage_warnings),
         }
     )
 
@@ -79,7 +88,9 @@ def get_scale_gaps(db: DbSession, current_user=Depends(require_permission("topol
 def generate_safe_recommendation(
     payload: SafeRecommendationRequest, db: DbSession, current_user=Depends(require_permission("design.create"))
 ):
-    design, scale_gaps, location_gaps = service.generate_recommendation(db, name=payload.name, created_by=current_user.id)
+    design, scale_gaps, location_gaps, coverage_warnings = service.generate_recommendation(
+        db, name=payload.name, created_by=current_user.id
+    )
     version = design_service.get_latest_version(db, design.id)
     record_audit_event(
         db,
@@ -97,5 +108,6 @@ def generate_safe_recommendation(
             "name": design.name,
             "scale_gaps": [_serialize_scale_gap(g) for g in scale_gaps],
             "location_gaps": [_serialize_location_gap(g) for g in location_gaps],
+            "coverage_warnings": _serialize_coverage_warnings(coverage_warnings),
         }
     )

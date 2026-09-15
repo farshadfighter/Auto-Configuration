@@ -274,6 +274,33 @@ def compute_location_gaps(db: Session, contexts: dict[uuid.UUID, AssetContext] |
     return findings
 
 
+@dataclass
+class CoverageWarnings:
+    """Surfaces assets the gap analysis silently excludes, so a clean report can't be mistaken
+    for complete coverage: assets with no SAFE Zone are invisible to the whole analysis, and
+    per_location-pin assets with no Location can't be checked for per-site coverage."""
+
+    unclassified_asset_count: int
+    unlocated_counts: dict[str, int]  # per_location pin id -> count of its assets missing a Location
+
+
+def compute_coverage_warnings(db: Session, contexts: dict[uuid.UUID, AssetContext] | None = None) -> CoverageWarnings:
+    contexts = contexts if contexts is not None else _asset_contexts(db)
+    per_location_pin_ids = {pin.id for pin in engine.load_pins() if pin.per_location}
+
+    unclassified = 0
+    unlocated_counts: dict[str, int] = {}
+    for ctx in contexts.values():
+        if ctx.asset.safe_pin is None:
+            unclassified += 1
+            continue
+        pin_id = ctx.asset.safe_pin.value
+        if pin_id in per_location_pin_ids and ctx.asset.location_id is None:
+            unlocated_counts[pin_id] = unlocated_counts.get(pin_id, 0) + 1
+
+    return CoverageWarnings(unclassified_asset_count=unclassified, unlocated_counts=unlocated_counts)
+
+
 def _unprotected_capabilities_by_pin(path_findings: list[PathFinding]) -> dict[str, set[str]]:
     """pin_id -> set of capability types that have at least one real, unprotected boundary
     crossing at that pin and no protected crossing to offset it. Used to override the naive
@@ -295,7 +322,7 @@ def _unprotected_capabilities_by_pin(path_findings: list[PathFinding]) -> dict[s
 
 def generate_recommendation(
     db: Session, *, name: str, created_by: uuid.UUID | None
-) -> tuple[ArchitectureDesign, list[ScaleGapFinding], list[LocationGapFinding]]:
+) -> tuple[ArchitectureDesign, list[ScaleGapFinding], list[LocationGapFinding], CoverageWarnings]:
     """Builds a new Architecture Design pre-populated with a SAFE-inspired reference topology,
     grounded in whatever of the current asset inventory has been classified by Place in the
     Network (Asset.safe_pin). Existing assets appear as real components (mapped back to the
@@ -315,12 +342,14 @@ def generate_recommendation(
     along the way, so callers (the API response) can surface them as a standalone gap report
     without recomputing the same asset/pin grouping twice."""
     pins = engine.load_pins()
-    assets_by_pin = _assets_by_pin(db)
+    contexts = _asset_contexts(db)
+    assets_by_pin = _assets_by_pin(db, contexts)
     path_findings = analyze_real_paths(db)
     unprotected_by_pin = _unprotected_capabilities_by_pin(path_findings)
     scale_gaps = compute_scale_gaps(db, assets_by_pin, unprotected_by_pin)
     scale_gap_by_component = {(g.pin, g.component_type): g for g in scale_gaps}
-    location_gaps = compute_location_gaps(db)
+    location_gaps = compute_location_gaps(db, contexts)
+    coverage_warnings = compute_coverage_warnings(db, contexts)
 
     design = design_service.create_design(
         db,
@@ -415,4 +444,4 @@ def generate_recommendation(
             )
 
     db.flush()
-    return design, scale_gaps, location_gaps
+    return design, scale_gaps, location_gaps, coverage_warnings

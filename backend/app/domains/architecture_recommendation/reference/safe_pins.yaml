@@ -35,7 +35,7 @@ pins:
     recommended_components:
       - component_type: cloud_gateway
         name: "Cloud Security Gateway (CASB / SASE)"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [cloud_gateway]
         matches_keywords: [casb, sase, "cloud gateway", "cloud access"]
       - component_type: firewall
         name: "Cloud Firewall (Virtual NGFW)"
@@ -59,11 +59,11 @@ pins:
           redundancy_min: 2
       - component_type: ips
         name: "Intrusion Prevention (IPS)"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [ips]
         matches_keywords: [ips, "intrusion prevention"]
       - component_type: vpn_concentrator
         name: "Remote Access VPN Concentrator"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [vpn_concentrator]
         matches_keywords: [vpn, "remote access"]
 
   - id: wan
@@ -99,6 +99,7 @@ pins:
     label: "Campus Core"
     order: 4
     connects_to: [campus_distribution, data_center]
+    per_location: true
     recommended_components:
       - component_type: switch
         name: "Core Switch (redundant pair)"
@@ -113,6 +114,7 @@ pins:
     label: "Campus Distribution"
     order: 5
     connects_to: [campus_access]
+    per_location: true
     recommended_components:
       - component_type: switch
         name: "Distribution Switch"
@@ -120,13 +122,14 @@ pins:
         matches_keywords: [distribution, dist]
       - component_type: nac
         name: "Network Access Control (802.1X)"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [nac]
         matches_keywords: [nac, "802.1x", radius]
 
   - id: campus_access
     label: "Campus Access"
     order: 6
     connects_to: []
+    per_location: true
     recommended_components:
       - component_type: switch
         name: "Access Switch"
@@ -134,13 +137,14 @@ pins:
         matches_keywords: [access]
       - component_type: wlc
         name: "Wireless LAN Controller"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [wlc]
         matches_keywords: [wlc, wireless, wifi, "wi-fi"]
 
   - id: data_center
     label: "Data Center"
     order: 7
     connects_to: []
+    per_location: true
     recommended_components:
       - component_type: switch
         name: "DC Aggregation Switch"
@@ -154,7 +158,7 @@ pins:
           redundancy_min: 2
       - component_type: ips
         name: "Data Center IPS"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [ips]
         matches_keywords: [ips, "intrusion prevention"]
       - component_type: load_balancer
         name: "Load Balancer / ADC"
@@ -176,19 +180,19 @@ pins:
     recommended_components:
       - component_type: siem
         name: "SIEM / Security Analytics"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [siem]
         matches_keywords: [siem, analytics]
       - component_type: aaa
         name: "AAA / RADIUS Server"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [aaa]
         matches_keywords: [aaa, radius, tacacs]
       - component_type: nms
         name: "Network Management System"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [nms]
         matches_keywords: [nms, monitoring]
       - component_type: logging
         name: "Syslog / NTP Server"
-        matches_asset_type_codes: []
+        matches_asset_type_codes: [logging]
         matches_keywords: [syslog, ntp]
 
 # Boundaries between PINs that SAFE expects a security capability to be enforced on - used by

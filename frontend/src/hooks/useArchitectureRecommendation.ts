@@ -21,12 +21,18 @@ export interface LocationGapFinding {
   missing_component_name: string;
 }
 
+export interface CoverageWarnings {
+  unclassified_asset_count: number;
+  unlocated_counts: Record<string, number>;
+}
+
 export interface SafeRecommendationResult {
   design_id: string;
   version_id: string;
   name: string;
   scale_gaps: ScaleGapFinding[];
   location_gaps: LocationGapFinding[];
+  coverage_warnings: CoverageWarnings;
 }
 
 export function useGenerateSafeRecommendation() {
