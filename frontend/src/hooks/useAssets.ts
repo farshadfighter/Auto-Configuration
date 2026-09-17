@@ -126,7 +126,12 @@ export function useAssetRelationships(assetId: string | undefined) {
 export function useCreateAssetRelationship() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { source_asset_id: string; target_asset_id: string; relationship_type: string }) => {
+    mutationFn: async (input: {
+      source_asset_id: string;
+      target_asset_id: string;
+      relationship_type: string;
+      relationship_metadata?: Record<string, unknown>;
+    }) => {
       const { data } = await api.post<ApiSuccess<AssetRelationship>>("/assets/relationships", input);
       return data.data;
     },

@@ -1,40 +1,45 @@
 import {
-  Activity,
   Box,
-  Boxes,
   Cloud,
+  Eye,
   Fingerprint,
   Gauge,
+  Globe,
   KeyRound,
   Lock,
   Network,
   Radar,
   Router as RouterIcon,
+  Scale,
   ScrollText,
   Server,
+  ServerCog,
   Shield,
   ShieldAlert,
+  Tags,
   Wifi,
   type LucideIcon,
 } from "lucide-react";
 
 // Maps a design component_type / asset type code to the icon that best represents it on the
 // architecture canvas and topology overlay, so a glance at the diagram reads like a real
-// network diagram (device-shaped icons) rather than plain labeled boxes.
+// network diagram (device-shaped icons) rather than plain labeled boxes. Each type gets a
+// visually distinct icon - domain_controller/dns_server/dhcp_server used to all share the plain
+// Server icon, which made them indistinguishable from each other and from a generic app server.
 const ICON_BY_TYPE: Record<string, LucideIcon> = {
   router: RouterIcon,
   firewall: ShieldAlert,
   switch: Network,
   server: Server,
-  domain_controller: Server,
-  dns_server: Server,
-  dhcp_server: Server,
-  load_balancer: Boxes,
+  domain_controller: ServerCog,
+  dns_server: Globe,
+  dhcp_server: Tags,
+  load_balancer: Scale,
   ips: Radar,
   vpn_concentrator: Lock,
   cloud_gateway: Cloud,
   nac: Fingerprint,
-  siem: Activity,
+  siem: Eye,
   aaa: KeyRound,
   nms: Gauge,
   logging: ScrollText,

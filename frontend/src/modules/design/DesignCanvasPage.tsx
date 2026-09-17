@@ -27,6 +27,7 @@ import type { CoverageWarnings, LocationGapFinding, ScaleGapFinding } from "../.
 import { getErrorMessage } from "../../services/api";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
+import { defaultPortsForType } from "../../constants/devicePorts";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
 
 function GapReportPanel({
@@ -134,6 +135,15 @@ interface PendingDevice {
   existingComponentId?: string;
 }
 
+interface PendingConnection {
+  source: string;
+  target: string;
+  sourceLabel: string;
+  targetLabel: string;
+  sourcePorts: string[];
+  targetPorts: string[];
+}
+
 export function DesignCanvasPage() {
   const { designId } = useParams<{ designId: string }>();
   const navigate = useNavigate();
@@ -180,6 +190,11 @@ export function DesignCanvasPage() {
   const [deviceName, setDeviceName] = useState("");
   const [devicePin, setDevicePin] = useState<SafePin | "">("");
   const [addDeviceError, setAddDeviceError] = useState<string | null>(null);
+  const [pendingConnection, setPendingConnection] = useState<PendingConnection | null>(null);
+  const [sourcePort, setSourcePort] = useState("");
+  const [targetPort, setTargetPort] = useState("");
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -216,7 +231,7 @@ export function DesignCanvasPage() {
         id: r.id,
         source: r.source_component_id,
         target: r.target_component_id,
-        label: r.relationship_type,
+        label: r.source_interface || r.target_interface ? `${r.source_interface ?? "?"} ↔ ${r.target_interface ?? "?"}` : r.relationship_type,
       })),
     );
   }, [graph, setNodes, setEdges]);
@@ -276,21 +291,79 @@ export function DesignCanvasPage() {
     setDevicePin(safePin);
   }
 
-  async function handleConnect(connection: Connection) {
+  function handleConnect(connection: Connection) {
     if (!connection.source || !connection.target) return;
-    await addRelationship.mutateAsync({
-      source_component_id: connection.source,
-      target_component_id: connection.target,
-      relationship_type: RELATIONSHIP_TYPE,
+    const sourceComponent = componentsById.get(connection.source);
+    const targetComponent = componentsById.get(connection.target);
+    const sourcePorts = defaultPortsForType(sourceComponent?.component_type);
+    const targetPorts = defaultPortsForType(targetComponent?.component_type);
+
+    // Neither side has a known port catalog (e.g. a cross-cutting capability like SIEM) -
+    // connect immediately rather than asking the user to pick from an empty list.
+    if (sourcePorts.length === 0 && targetPorts.length === 0) {
+      void commitConnection(connection.source, connection.target);
+      return;
+    }
+
+    setPendingConnection({
+      source: connection.source,
+      target: connection.target,
+      sourceLabel: sourceComponent?.name ?? "source",
+      targetLabel: targetComponent?.name ?? "target",
+      sourcePorts,
+      targetPorts,
     });
-    const sourceAssetId = componentsById.get(connection.source)?.asset_id;
-    const targetAssetId = componentsById.get(connection.target)?.asset_id;
+    setSourcePort("");
+    setTargetPort("");
+    setConnectError(null);
+  }
+
+  async function commitConnection(
+    sourceComponentId: string,
+    targetComponentId: string,
+    sourceInterface?: string,
+    targetInterface?: string,
+  ) {
+    await addRelationship.mutateAsync({
+      source_component_id: sourceComponentId,
+      target_component_id: targetComponentId,
+      relationship_type: RELATIONSHIP_TYPE,
+      source_interface: sourceInterface || undefined,
+      target_interface: targetInterface || undefined,
+    });
+    const sourceAssetId = componentsById.get(sourceComponentId)?.asset_id;
+    const targetAssetId = componentsById.get(targetComponentId)?.asset_id;
     if (sourceAssetId && targetAssetId) {
       await createAssetRelationship.mutateAsync({
         source_asset_id: sourceAssetId,
         target_asset_id: targetAssetId,
         relationship_type: RELATIONSHIP_TYPE,
+        relationship_metadata:
+          sourceInterface || targetInterface
+            ? { source_interface: sourceInterface || undefined, target_interface: targetInterface || undefined }
+            : undefined,
       });
+    }
+  }
+
+  function resetConnectionForm() {
+    setPendingConnection(null);
+    setSourcePort("");
+    setTargetPort("");
+    setConnectError(null);
+  }
+
+  async function handleConfirmConnection() {
+    if (!pendingConnection) return;
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      await commitConnection(pendingConnection.source, pendingConnection.target, sourcePort, targetPort);
+      resetConnectionForm();
+    } catch (err) {
+      setConnectError(getErrorMessage(err, "Could not connect devices"));
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -467,6 +540,53 @@ export function DesignCanvasPage() {
             </button>
           </div>
           {addDeviceError && <p className="form-error">{addDeviceError}</p>}
+        </div>
+      )}
+
+      {pendingConnection && (
+        <div className="panel" style={{ marginTop: 12, maxWidth: 480 }}>
+          <strong style={{ fontSize: 13 }}>
+            Connect {pendingConnection.sourceLabel} &rarr; {pendingConnection.targetLabel}
+          </strong>
+          <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+              {pendingConnection.sourceLabel} port
+              {pendingConnection.sourcePorts.length > 0 ? (
+                <select value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} autoFocus>
+                  <option value="">No port</option>
+                  {pendingConnection.sourcePorts.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input placeholder="Port (optional)" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} />
+              )}
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+              {pendingConnection.targetLabel} port
+              {pendingConnection.targetPorts.length > 0 ? (
+                <select value={targetPort} onChange={(e) => setTargetPort(e.target.value)}>
+                  <option value="">No port</option>
+                  {pendingConnection.targetPorts.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input placeholder="Port (optional)" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} />
+              )}
+            </label>
+            <button onClick={handleConfirmConnection} disabled={connecting}>
+              {connecting ? "Connecting..." : "Connect"}
+            </button>
+            <button className="btn-secondary" onClick={resetConnectionForm}>
+              Cancel
+            </button>
+          </div>
+          {connectError && <p className="form-error">{connectError}</p>}
         </div>
       )}
     </div>

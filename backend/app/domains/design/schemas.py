@@ -55,6 +55,8 @@ class RelationshipCreate(BaseModel):
     source_component_id: uuid.UUID
     target_component_id: uuid.UUID
     relationship_type: str
+    source_interface: str | None = None
+    target_interface: str | None = None
 
 
 class RelationshipOut(BaseModel):
@@ -63,6 +65,8 @@ class RelationshipOut(BaseModel):
     source_component_id: uuid.UUID
     target_component_id: uuid.UUID
     relationship_type: str
+    source_interface: str | None = None
+    target_interface: str | None = None
 
 
 class VersionGraph(BaseModel):

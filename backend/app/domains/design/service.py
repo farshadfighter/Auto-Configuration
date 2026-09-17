@@ -110,6 +110,8 @@ def create_new_version(db: Session, design_id: uuid.UUID, created_by: uuid.UUID 
                 source_component_id=component_id_map[relationship.source_component_id],
                 target_component_id=component_id_map[relationship.target_component_id],
                 relationship_type=relationship.relationship_type,
+                source_interface=relationship.source_interface,
+                target_interface=relationship.target_interface,
             )
         )
     db.flush()

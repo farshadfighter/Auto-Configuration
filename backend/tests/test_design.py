@@ -36,6 +36,76 @@ def test_add_components_and_relationship(client, admin_headers):
     assert len(graph["relationships"]) == 1
 
 
+def test_relationship_persists_source_and_target_interface(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Port Test"}).json()["data"]
+    version_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+
+    core = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Core-1"},
+    ).json()["data"]
+    edge = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "switch", "name": "Edge-1"},
+    ).json()["data"]
+
+    rel = client.post(
+        f"/api/v1/designs/versions/{version_id}/relationships",
+        headers=admin_headers,
+        json={
+            "source_component_id": core["id"],
+            "target_component_id": edge["id"],
+            "relationship_type": "uplink",
+            "source_interface": "Gi0/1",
+            "target_interface": "Gi0/24",
+        },
+    )
+    assert rel.status_code == 201, rel.text
+    assert rel.json()["data"]["source_interface"] == "Gi0/1"
+    assert rel.json()["data"]["target_interface"] == "Gi0/24"
+
+    graph = client.get(f"/api/v1/designs/versions/{version_id}", headers=admin_headers).json()["data"]
+    relationship = graph["relationships"][0]
+    assert relationship["source_interface"] == "Gi0/1"
+    assert relationship["target_interface"] == "Gi0/24"
+
+
+def test_new_version_clones_relationship_interfaces(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Clone Interface Test"}).json()["data"]
+    v1_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+    core = client.post(
+        f"/api/v1/designs/versions/{v1_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Core-1"},
+    ).json()["data"]
+    edge = client.post(
+        f"/api/v1/designs/versions/{v1_id}/components",
+        headers=admin_headers,
+        json={"component_type": "switch", "name": "Edge-1"},
+    ).json()["data"]
+    client.post(
+        f"/api/v1/designs/versions/{v1_id}/relationships",
+        headers=admin_headers,
+        json={
+            "source_component_id": core["id"],
+            "target_component_id": edge["id"],
+            "relationship_type": "uplink",
+            "source_interface": "Gi0/1",
+            "target_interface": "Gi0/24",
+        },
+    )
+    client.post(f"/api/v1/designs/{design['id']}/approve", headers=admin_headers, json={})
+    v2 = client.post(f"/api/v1/designs/{design['id']}/versions", headers=admin_headers).json()["data"]
+
+    graph = client.get(f"/api/v1/designs/versions/{v2['id']}", headers=admin_headers).json()["data"]
+    assert len(graph["relationships"]) == 1
+    cloned = graph["relationships"][0]
+    assert cloned["source_interface"] == "Gi0/1"
+    assert cloned["target_interface"] == "Gi0/24"
+
+
 def test_approve_design_and_edit_requires_new_version(client, admin_headers):
     design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "To Approve"}).json()["data"]
     version_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]

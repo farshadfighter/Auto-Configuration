@@ -12,6 +12,8 @@ export interface TopologyLink {
   id: string;
   source_node_id: string;
   destination_node_id: string;
+  source_interface: string | null;
+  destination_interface: string | null;
   link_type: string | null;
   status: string;
 }
@@ -50,7 +52,13 @@ export function useValidateTopology() {
 export function useCreateTopologyLink() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { source_node_id: string; destination_node_id: string; link_type?: string }) => {
+    mutationFn: async (input: {
+      source_node_id: string;
+      destination_node_id: string;
+      source_interface?: string;
+      destination_interface?: string;
+      link_type?: string;
+    }) => {
       const { data } = await api.post<ApiSuccess<TopologyLink>>("/topology/links", input);
       return data.data;
     },
