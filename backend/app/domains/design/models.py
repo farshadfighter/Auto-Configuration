@@ -80,6 +80,8 @@ class DesignRelationship(UUIDPKMixin, Base):
         UUID(as_uuid=True), ForeignKey("design_components.id", ondelete="CASCADE"), nullable=False
     )
     relationship_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_interface: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    target_interface: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
 
 class DesignAssetMapping(Base):

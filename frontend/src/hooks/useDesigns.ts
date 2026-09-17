@@ -69,6 +69,8 @@ export interface DesignRelationship {
   source_component_id: string;
   target_component_id: string;
   relationship_type: string;
+  source_interface: string | null;
+  target_interface: string | null;
 }
 
 export function useVersionGraph(versionId: string | undefined) {
@@ -116,7 +118,13 @@ export function useMapComponentToAsset(versionId: string | undefined) {
 export function useAddRelationship(versionId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { source_component_id: string; target_component_id: string; relationship_type: string }) => {
+    mutationFn: async (input: {
+      source_component_id: string;
+      target_component_id: string;
+      relationship_type: string;
+      source_interface?: string;
+      target_interface?: string;
+    }) => {
       const { data } = await api.post<ApiSuccess<DesignRelationship>>(`/designs/versions/${versionId}/relationships`, input);
       return data.data;
     },
