@@ -1,4 +1,14 @@
-import { Background, Controls, ReactFlow, type Connection, type Edge, type Node, useEdgesState, useNodesState } from "@xyflow/react";
+import {
+  Background,
+  ConnectionMode,
+  Controls,
+  ReactFlow,
+  type Connection,
+  type Edge,
+  type Node,
+  useEdgesState,
+  useNodesState,
+} from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useEffect, useState } from "react";
 import {
@@ -11,7 +21,7 @@ import {
 import { useAssets, useAssetTypes, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
 import { useSafePathAnalysis, type PathFinding } from "../../hooks/useArchitectureRecommendation";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
-import { defaultPortsForType } from "../../constants/devicePorts";
+import { DEVICE_NODE_TYPES, type DeviceNodeData } from "../design/DeviceNode";
 import { getErrorMessage } from "../../services/api";
 
 function layoutGrid(nodeIds: string[]): Record<string, { x: number; y: number }> {
@@ -47,8 +57,6 @@ interface PendingLinkConnection {
   target: string;
   sourceLabel: string;
   targetLabel: string;
-  sourcePorts: string[];
-  targetPorts: string[];
 }
 
 export function TopologyPage() {
@@ -72,13 +80,6 @@ export function TopologyPage() {
   const assetById = new Map((assetsResponse?.data ?? []).map((a) => [a.id, a]));
   const nodeById = new Map((graph?.nodes ?? []).map((n) => [n.id, n]));
 
-  function portsForNode(nodeId: string): string[] {
-    const node = nodeById.get(nodeId);
-    const asset = node?.reference_id ? assetById.get(node.reference_id) : undefined;
-    const typeCode = asset ? assetTypeCodeById.get(asset.asset_type_id) : undefined;
-    return defaultPortsForType(typeCode);
-  }
-
   useEffect(() => {
     if (!graph) return;
 
@@ -98,16 +99,21 @@ export function TopologyPage() {
     setNodes(
       graph.nodes.map((n) => {
         const pin = n.reference_id ? safePinByAssetId.get(n.reference_id) : undefined;
-        const color = safeView ? (pin ? SAFE_PIN_COLORS[pin] : DEFAULT_NODE_COLOR) : undefined;
+        const asset = n.reference_id ? assetById.get(n.reference_id) : undefined;
+        const componentType = (asset ? assetTypeCodeById.get(asset.asset_type_id) : undefined) ?? n.node_type;
+        const color = safeView && pin ? SAFE_PIN_COLORS[pin] : DEFAULT_NODE_COLOR;
+        const data: DeviceNodeData = {
+          label: n.label,
+          componentType,
+          color,
+          dashed: false,
+          subtitle: safeView && pin ? SAFE_PIN_LABELS[pin] : undefined,
+        };
         return {
           id: n.id,
+          type: "device",
           position: positions[n.id],
-          data: { label: safeView && pin ? `${n.label} (${n.node_type})\n${SAFE_PIN_LABELS[pin]}` : `${n.label} (${n.node_type})` },
-          style: {
-            fontSize: 12,
-            whiteSpace: "pre-line",
-            ...(color ? { border: `2px solid ${color}`, borderRadius: 6 } : {}),
-          },
+          data,
         };
       }),
     );
@@ -128,7 +134,7 @@ export function TopologyPage() {
         };
       }),
     );
-  }, [graph, safeView, assetsResponse, pathFindings, setNodes, setEdges]);
+  }, [graph, safeView, assetsResponse, assetTypes, pathFindings, setNodes, setEdges]);
 
   async function handleValidate() {
     try {
@@ -145,21 +151,26 @@ export function TopologyPage() {
 
   function handleConnect(connection: Connection) {
     if (!connection.source || !connection.target) return;
-    const sourcePorts = portsForNode(connection.source);
-    const targetPorts = portsForNode(connection.target);
 
-    if (sourcePorts.length === 0 && targetPorts.length === 0) {
-      createLink.mutate({ source_node_id: connection.source, destination_node_id: connection.target });
+    // Dragged directly from one device's specific port handle to another's (EVE-NG style) -
+    // commit the link immediately with those exact ports, no confirmation panel needed.
+    if (connection.sourceHandle || connection.targetHandle) {
+      createLink.mutate({
+        source_node_id: connection.source,
+        destination_node_id: connection.target,
+        source_interface: connection.sourceHandle ?? undefined,
+        destination_interface: connection.targetHandle ?? undefined,
+      });
       return;
     }
 
+    // Fallback for portless (cross-cutting capability) device types with only the 4 generic
+    // handles - ask for optional free-text port names instead.
     setPendingConnection({
       source: connection.source,
       target: connection.target,
       sourceLabel: nodeById.get(connection.source)?.label ?? "source",
       targetLabel: nodeById.get(connection.target)?.label ?? "target",
-      sourcePorts,
-      targetPorts,
     });
     setSourcePort("");
     setTargetPort("");
@@ -270,10 +281,12 @@ export function TopologyPage() {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodeTypes={DEVICE_NODE_TYPES}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
+          connectionMode={ConnectionMode.Loose}
           fitView
         >
           <Background />
@@ -289,33 +302,11 @@ export function TopologyPage() {
           <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
               {pendingConnection.sourceLabel} port
-              {pendingConnection.sourcePorts.length > 0 ? (
-                <select value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} autoFocus>
-                  <option value="">No port</option>
-                  {pendingConnection.sourcePorts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input placeholder="Port (optional)" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} />
-              )}
+              <input placeholder="Port (optional)" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} autoFocus />
             </label>
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
               {pendingConnection.targetLabel} port
-              {pendingConnection.targetPorts.length > 0 ? (
-                <select value={targetPort} onChange={(e) => setTargetPort(e.target.value)}>
-                  <option value="">No port</option>
-                  {pendingConnection.targetPorts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input placeholder="Port (optional)" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} />
-              )}
+              <input placeholder="Port (optional)" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} />
             </label>
             <button onClick={handleConfirmConnection} disabled={createLink.isPending}>
               {createLink.isPending ? "Connecting..." : "Connect"}
