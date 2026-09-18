@@ -95,6 +95,20 @@ def test_rerun_preserves_triaged_findings(client, admin_headers, asset_type):
     assert refreshed.json()["data"]["status"] == "accepted"
 
 
+def test_router_without_oob_management_flagged_bp_net_003(client, admin_headers, asset_type):
+    _create_asset(client, admin_headers, asset_type, "no-oob-router")
+    client.post("/api/v1/best-practice/analyze", headers=admin_headers)
+    findings = client.get("/api/v1/best-practice/findings", headers=admin_headers).json()["data"]
+    assert any(f["rule_code"] == "BP-NET-003" for f in findings)
+
+
+def test_router_with_oob_management_not_flagged_bp_net_003(client, admin_headers, asset_type):
+    _create_asset(client, admin_headers, asset_type, "oob-router", asset_metadata={"oob_management": True})
+    client.post("/api/v1/best-practice/analyze", headers=admin_headers)
+    findings = client.get("/api/v1/best-practice/findings", headers=admin_headers).json()["data"]
+    assert not any(f["rule_code"] == "BP-NET-003" for f in findings)
+
+
 def test_viewer_cannot_run_analysis(client, viewer_headers):
     response = client.post("/api/v1/best-practice/analyze", headers=viewer_headers)
     assert response.status_code == 403

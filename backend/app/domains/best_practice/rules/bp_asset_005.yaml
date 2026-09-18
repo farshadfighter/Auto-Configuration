@@ -1,0 +1,18 @@
+id: BP-ASSET-005
+technology: general
+category: asset_management
+version: "1.0"
+severity: medium
+title: Asset is approaching or past its planned retirement date
+description: >
+  Assets within 90 days of (or past) their planned retirement date need a replacement or
+  extension decision before they become unsupported in production.
+applies_to:
+  - field: asset.status
+    operator: not_equals
+    value: decommissioned
+conditions:
+  - field: asset.days_until_retirement
+    operator: less_than
+    value: 90
+recommendation: Plan a replacement, or update the planned retirement date if the asset will stay in service.

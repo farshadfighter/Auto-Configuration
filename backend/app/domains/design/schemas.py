@@ -57,6 +57,19 @@ class RelationshipCreate(BaseModel):
     relationship_type: str
     source_interface: str | None = None
     target_interface: str | None = None
+    link_type: str | None = None
+    speed_mbps: int | None = None
+    vlan: int | None = None
+    subnet: str | None = None
+
+
+class RelationshipUpdate(BaseModel):
+    source_interface: str | None = None
+    target_interface: str | None = None
+    link_type: str | None = None
+    speed_mbps: int | None = None
+    vlan: int | None = None
+    subnet: str | None = None
 
 
 class RelationshipOut(BaseModel):
@@ -67,11 +80,30 @@ class RelationshipOut(BaseModel):
     relationship_type: str
     source_interface: str | None = None
     target_interface: str | None = None
+    link_type: str | None = None
+    speed_mbps: int | None = None
+    vlan: int | None = None
+    subnet: str | None = None
 
 
 class VersionGraph(BaseModel):
     components: list[ComponentOut]
     relationships: list[RelationshipOut]
+
+
+class DesignTemplateOut(BaseModel):
+    code: str
+    name: str
+    description: str
+    category: str
+    component_count: int
+    relationship_count: int
+
+
+class DesignFromTemplateRequest(BaseModel):
+    template_code: str
+    name: str
+    description: str | None = None
 
 
 class ApproveDesignRequest(BaseModel):

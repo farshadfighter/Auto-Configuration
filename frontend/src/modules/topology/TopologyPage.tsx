@@ -6,23 +6,37 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type ReactFlowInstance,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useCreateTopologyLink,
   useTopology,
   useUpdateTopologyLayout,
+  useUpdateTopologyLink,
   useValidateTopology,
   type TopologyFinding,
+  type TopologyLink,
 } from "../../hooks/useTopology";
 import { useAssets, useAssetTypes, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
 import { useSafePathAnalysis, type PathFinding } from "../../hooks/useArchitectureRecommendation";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "../design/DeviceNode";
+import { LinkEditPanel, type LinkEditState } from "../../components/LinkEditPanel";
+import { downloadDiagramPdf, downloadDiagramPng } from "../../utils/exportDiagram";
 import { getErrorMessage } from "../../services/api";
+
+function formatLinkLabel(l: TopologyLink): string {
+  const parts: string[] = [];
+  if (l.source_interface || l.destination_interface) parts.push(`${l.source_interface ?? "?"} ↔ ${l.destination_interface ?? "?"}`);
+  if (l.link_type) parts.push(l.link_type.replace(/_/g, " "));
+  if (l.speed_mbps) parts.push(`${l.speed_mbps}Mbps`);
+  if (l.vlan) parts.push(`VLAN ${l.vlan}`);
+  return parts.join(" · ");
+}
 
 function layoutGrid(nodeIds: string[]): Record<string, { x: number; y: number }> {
   const columns = Math.ceil(Math.sqrt(nodeIds.length || 1));
@@ -64,6 +78,7 @@ export function TopologyPage() {
   const validate = useValidateTopology();
   const updateLayout = useUpdateTopologyLayout();
   const createLink = useCreateTopologyLink();
+  const updateLink = useUpdateTopologyLink();
   const [findings, setFindings] = useState<TopologyFinding[] | null>(null);
   const [safeView, setSafeView] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -71,6 +86,13 @@ export function TopologyPage() {
   const [pendingConnection, setPendingConnection] = useState<PendingLinkConnection | null>(null);
   const [sourcePort, setSourcePort] = useState("");
   const [targetPort, setTargetPort] = useState("");
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [linkEditState, setLinkEditState] = useState<LinkEditState | null>(null);
+  const [linkEditError, setLinkEditError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const { data: assetsResponse } = useAssets({ page_size: 500 });
   const { data: assetTypes } = useAssetTypes();
@@ -79,6 +101,8 @@ export function TopologyPage() {
   const assetTypeCodeById = new Map((assetTypes ?? []).map((t) => [t.id, t.code]));
   const assetById = new Map((assetsResponse?.data ?? []).map((a) => [a.id, a]));
   const nodeById = new Map((graph?.nodes ?? []).map((n) => [n.id, n]));
+  const linkById = new Map((graph?.links ?? []).map((l) => [l.id, l]));
+  const editingLink = editingLinkId ? linkById.get(editingLinkId) : undefined;
 
   useEffect(() => {
     if (!graph) return;
@@ -120,15 +144,12 @@ export function TopologyPage() {
     setEdges(
       graph.links.map((l) => {
         const badge = badEdges.get(l.id);
-        const portLabel =
-          l.source_interface || l.destination_interface
-            ? `${l.source_interface ?? "?"} ↔ ${l.destination_interface ?? "?"}`
-            : (l.link_type ?? undefined);
+        const linkLabel = formatLinkLabel(l);
         return {
           id: l.id,
           source: l.source_node_id,
           target: l.destination_node_id,
-          label: badge ? `⚠ ${portLabel ?? ""}`.trim() : portLabel,
+          label: badge ? `⚠ ${linkLabel}`.trim() : linkLabel || undefined,
           style: badge ? { stroke: "#dc2626", strokeWidth: 2, strokeDasharray: "6,4" } : undefined,
           labelStyle: badge ? { fill: "#dc2626", fontWeight: 600 } : undefined,
         };
@@ -182,6 +203,45 @@ export function TopologyPage() {
     setTargetPort("");
   }
 
+  function handleEdgeClick(_: unknown, edge: Edge) {
+    const link = linkById.get(edge.id);
+    if (!link) return;
+    setEditingLinkId(link.id);
+    setLinkEditState({
+      sourcePort: link.source_interface ?? "",
+      targetPort: link.destination_interface ?? "",
+      linkType: link.link_type ?? "",
+      speedMbps: link.speed_mbps ? String(link.speed_mbps) : "",
+      vlan: link.vlan ? String(link.vlan) : "",
+      subnet: link.subnet ?? "",
+    });
+    setLinkEditError(null);
+  }
+
+  function resetLinkEditForm() {
+    setEditingLinkId(null);
+    setLinkEditState(null);
+    setLinkEditError(null);
+  }
+
+  async function handleSaveLinkEdit() {
+    if (!editingLinkId || !linkEditState) return;
+    try {
+      await updateLink.mutateAsync({
+        id: editingLinkId,
+        source_interface: linkEditState.sourcePort || null,
+        destination_interface: linkEditState.targetPort || null,
+        link_type: linkEditState.linkType || null,
+        speed_mbps: linkEditState.speedMbps ? Number(linkEditState.speedMbps) : null,
+        vlan: linkEditState.vlan ? Number(linkEditState.vlan) : null,
+        subnet: linkEditState.subnet || null,
+      });
+      resetLinkEditForm();
+    } catch (err) {
+      setLinkEditError(getErrorMessage(err, "Could not update link"));
+    }
+  }
+
   function handleConfirmConnection() {
     if (!pendingConnection) return;
     createLink.mutate(
@@ -195,6 +255,22 @@ export function TopologyPage() {
     );
   }
 
+  async function handleExport(format: "png" | "pdf") {
+    if (!wrapperRef.current) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      reactFlowInstance.current?.fitView();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (format === "png") await downloadDiagramPng(wrapperRef.current, "topology");
+      else await downloadDiagramPdf(wrapperRef.current, "topology");
+    } catch (err) {
+      setExportError(getErrorMessage(err, "Could not export the diagram"));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const unprotected = safeView ? (pathFindings ?? []).filter((f) => !f.protected) : [];
   const usedPins = safeView
     ? Array.from(new Set((assetsResponse?.data ?? []).map((a) => a.safe_pin).filter((p): p is SafePin => Boolean(p))))
@@ -205,6 +281,12 @@ export function TopologyPage() {
       <div className="page-header">
         <h1>Topology</h1>
         <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn-secondary" onClick={() => handleExport("png")} disabled={exporting}>
+            {exporting ? "Exporting..." : "Export PNG"}
+          </button>
+          <button className="btn-secondary" onClick={() => handleExport("pdf")} disabled={exporting}>
+            Export PDF
+          </button>
           <button
             className={safeView ? "btn-primary" : undefined}
             onClick={() => setSafeView((v) => !v)}
@@ -217,6 +299,7 @@ export function TopologyPage() {
         </div>
       </div>
 
+      {exportError && <p className="form-error">{exportError}</p>}
       {validate.isError && <p className="form-error">{getErrorMessage(validate.error, "Validation failed")}</p>}
       {updateLayout.isError && <p className="form-error">{getErrorMessage(updateLayout.error, "Could not save node position")}</p>}
       {createLink.isError && <p className="form-error">{getErrorMessage(createLink.error, "Could not create connection")}</p>}
@@ -277,7 +360,7 @@ export function TopologyPage() {
         </div>
       )}
 
-      <div className="canvas-container" style={{ height: 520 }}>
+      <div className="canvas-container" style={{ height: 520 }} ref={wrapperRef}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -286,6 +369,10 @@ export function TopologyPage() {
           onEdgesChange={onEdgesChange}
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
+          onEdgeClick={handleEdgeClick}
+          onInit={(instance) => {
+            reactFlowInstance.current = instance;
+          }}
           connectionMode={ConnectionMode.Loose}
           fitView
         >
@@ -316,6 +403,19 @@ export function TopologyPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {editingLink && linkEditState && (
+        <LinkEditPanel
+          sourceLabel={nodeById.get(editingLink.source_node_id)?.label ?? "source"}
+          targetLabel={nodeById.get(editingLink.destination_node_id)?.label ?? "target"}
+          state={linkEditState}
+          onChange={setLinkEditState}
+          onSave={handleSaveLinkEdit}
+          onCancel={resetLinkEditForm}
+          saving={updateLink.isPending}
+          error={linkEditError}
+        />
       )}
     </div>
   );

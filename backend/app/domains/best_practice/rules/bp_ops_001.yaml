@@ -1,0 +1,18 @@
+id: BP-OPS-001
+technology: general
+category: operations
+version: "1.0"
+severity: medium
+title: Managed asset has no NTP source configured
+description: >
+  Without a synchronized time source, logs and audit trails from this asset cannot be
+  reliably correlated with events on other systems.
+applies_to:
+  - field: asset.managed
+    operator: equals
+    value: managed
+conditions:
+  - field: asset.metadata.ntp_configured
+    operator: not_equals
+    value: true
+recommendation: Configure this asset to synchronize time from an approved NTP source.

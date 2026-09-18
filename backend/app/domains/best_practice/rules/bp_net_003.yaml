@@ -1,0 +1,18 @@
+id: BP-NET-003
+technology: network
+category: network
+version: "1.0"
+severity: medium
+title: Network device has no out-of-band management configured
+description: >
+  Routers, switches, and firewalls should be reachable through a dedicated out-of-band
+  management path so they stay manageable during a production-path outage.
+applies_to:
+  - field: asset.asset_type_code
+    operator: in
+    value: [router, switch, firewall]
+conditions:
+  - field: asset.metadata.oob_management
+    operator: not_equals
+    value: true
+recommendation: Configure and record an out-of-band management interface for this device.

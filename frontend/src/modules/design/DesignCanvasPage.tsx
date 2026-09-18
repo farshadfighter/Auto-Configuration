@@ -20,15 +20,28 @@ import {
   useCreateNewVersion,
   useDesign,
   useMapComponentToAsset,
+  useUpdateRelationship,
   useVersionGraph,
   type DesignComponent,
+  type DesignRelationship,
 } from "../../hooks/useDesigns";
 import { useAssetTypes, useCreateAsset, useCreateAssetRelationship, SAFE_PIN_LABELS, type SafePin } from "../../hooks/useAssets";
 import type { CoverageWarnings, LocationGapFinding, ScaleGapFinding } from "../../hooks/useArchitectureRecommendation";
 import { getErrorMessage } from "../../services/api";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
+import { LinkEditPanel, type LinkEditState } from "../../components/LinkEditPanel";
+import { downloadDiagramPdf, downloadDiagramPng } from "../../utils/exportDiagram";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
+
+function formatLinkLabel(r: DesignRelationship): string {
+  const parts: string[] = [];
+  if (r.source_interface || r.target_interface) parts.push(`${r.source_interface ?? "?"} ↔ ${r.target_interface ?? "?"}`);
+  if (r.link_type) parts.push(r.link_type.replace(/_/g, " "));
+  if (r.speed_mbps) parts.push(`${r.speed_mbps}Mbps`);
+  if (r.vlan) parts.push(`VLAN ${r.vlan}`);
+  return parts.length > 0 ? parts.join(" · ") : r.relationship_type;
+}
 
 function GapReportPanel({
   scaleGaps,
@@ -174,6 +187,7 @@ export function DesignCanvasPage() {
   const { data: graph } = useVersionGraph(versionId);
   const addComponent = useAddComponent(versionId, designId ?? "");
   const addRelationship = useAddRelationship(versionId);
+  const updateRelationship = useUpdateRelationship(versionId);
   const mapComponentToAsset = useMapComponentToAsset(versionId);
   const createAsset = useCreateAsset();
   const createAssetRelationship = useCreateAssetRelationship();
@@ -193,6 +207,11 @@ export function DesignCanvasPage() {
   const [targetPort, setTargetPort] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [editingRelationshipId, setEditingRelationshipId] = useState<string | null>(null);
+  const [linkEditState, setLinkEditState] = useState<LinkEditState | null>(null);
+  const [linkEditError, setLinkEditError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -201,6 +220,13 @@ export function DesignCanvasPage() {
     for (const c of graph?.components ?? []) map.set(c.id, c);
     return map;
   }, [graph]);
+
+  const relationshipsById = useMemo(() => {
+    const map = new Map<string, DesignRelationship>();
+    for (const r of graph?.relationships ?? []) map.set(r.id, r);
+    return map;
+  }, [graph]);
+  const editingRelationship = editingRelationshipId ? relationshipsById.get(editingRelationshipId) : undefined;
 
   useEffect(() => {
     if (!graph) return;
@@ -229,7 +255,7 @@ export function DesignCanvasPage() {
         id: r.id,
         source: r.source_component_id,
         target: r.target_component_id,
-        label: r.source_interface || r.target_interface ? `${r.source_interface ?? "?"} ↔ ${r.target_interface ?? "?"}` : r.relationship_type,
+        label: formatLinkLabel(r),
       })),
     );
   }, [graph, setNodes, setEdges]);
@@ -369,6 +395,62 @@ export function DesignCanvasPage() {
     }
   }
 
+  function handleEdgeClick(_: unknown, edge: Edge) {
+    const relationship = relationshipsById.get(edge.id);
+    if (!relationship) return;
+    setEditingRelationshipId(relationship.id);
+    setLinkEditState({
+      sourcePort: relationship.source_interface ?? "",
+      targetPort: relationship.target_interface ?? "",
+      linkType: relationship.link_type ?? "",
+      speedMbps: relationship.speed_mbps ? String(relationship.speed_mbps) : "",
+      vlan: relationship.vlan ? String(relationship.vlan) : "",
+      subnet: relationship.subnet ?? "",
+    });
+    setLinkEditError(null);
+  }
+
+  function resetLinkEditForm() {
+    setEditingRelationshipId(null);
+    setLinkEditState(null);
+    setLinkEditError(null);
+  }
+
+  async function handleSaveLinkEdit() {
+    if (!editingRelationshipId || !linkEditState) return;
+    try {
+      await updateRelationship.mutateAsync({
+        id: editingRelationshipId,
+        source_interface: linkEditState.sourcePort || null,
+        target_interface: linkEditState.targetPort || null,
+        link_type: linkEditState.linkType || null,
+        speed_mbps: linkEditState.speedMbps ? Number(linkEditState.speedMbps) : null,
+        vlan: linkEditState.vlan ? Number(linkEditState.vlan) : null,
+        subnet: linkEditState.subnet || null,
+      });
+      resetLinkEditForm();
+    } catch (err) {
+      setLinkEditError(getErrorMessage(err, "Could not update link"));
+    }
+  }
+
+  async function handleExport(format: "png" | "pdf") {
+    if (!wrapperRef.current) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      reactFlowInstance.current?.fitView();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const baseName = design?.name.replace(/[^\w.-]+/g, "_") || "design";
+      if (format === "png") await downloadDiagramPng(wrapperRef.current, baseName);
+      else await downloadDiagramPdf(wrapperRef.current, baseName);
+    } catch (err) {
+      setExportError(getErrorMessage(err, "Could not export the diagram"));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function handleDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
     const type = event.dataTransfer.getData(DRAG_DATA_TYPE);
@@ -386,6 +468,12 @@ export function DesignCanvasPage() {
           {design.name} <span className={`badge ${STATUS_BADGE[design.latest_version.status]}`}>{design.latest_version.version_label} · {design.latest_version.status}</span>
         </h1>
         <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn-secondary" onClick={() => handleExport("png")} disabled={exporting}>
+            {exporting ? "Exporting..." : "Export PNG"}
+          </button>
+          <button className="btn-secondary" onClick={() => handleExport("pdf")} disabled={exporting}>
+            Export PDF
+          </button>
           {isDraft && (
             <button onClick={() => approveDesign.mutate(undefined)} disabled={approveDesign.isPending}>
               Approve
@@ -398,6 +486,8 @@ export function DesignCanvasPage() {
           )}
         </div>
       </div>
+
+      {exportError && <p className="form-error">{exportError}</p>}
 
       {gapReport && (
         <GapReportPanel
@@ -424,7 +514,10 @@ export function DesignCanvasPage() {
             <strong style={{ border: "2px dashed #334155", padding: "1px 6px", borderRadius: 4, marginRight: 4 }}>dashed</strong>
             not yet in inventory
           </span>
-          <span>color = SAFE zone · click a device for details · drag a link between two devices to connect them</span>
+          <span>
+            color = SAFE zone · click a device for details · drag a link between two devices to connect them · click a
+            connection to edit its bandwidth/VLAN
+          </span>
         </div>
       ) : null}
 
@@ -469,6 +562,7 @@ export function DesignCanvasPage() {
               reactFlowInstance.current = instance;
             }}
             onNodeClick={(_, node) => setSelectedComponentId(node.id)}
+            onEdgeClick={handleEdgeClick}
             onPaneClick={() => setSelectedComponentId(null)}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -569,6 +663,19 @@ export function DesignCanvasPage() {
           </div>
           {connectError && <p className="form-error">{connectError}</p>}
         </div>
+      )}
+
+      {editingRelationship && linkEditState && (
+        <LinkEditPanel
+          sourceLabel={componentsById.get(editingRelationship.source_component_id)?.name ?? "source"}
+          targetLabel={componentsById.get(editingRelationship.target_component_id)?.name ?? "target"}
+          state={linkEditState}
+          onChange={setLinkEditState}
+          onSave={handleSaveLinkEdit}
+          onCancel={resetLinkEditForm}
+          saving={updateRelationship.isPending}
+          error={linkEditError}
+        />
       )}
     </div>
   );

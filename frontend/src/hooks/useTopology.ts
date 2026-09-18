@@ -15,6 +15,9 @@ export interface TopologyLink {
   source_interface: string | null;
   destination_interface: string | null;
   link_type: string | null;
+  speed_mbps: number | null;
+  vlan: number | null;
+  subnet: string | null;
   status: string;
 }
 
@@ -58,8 +61,31 @@ export function useCreateTopologyLink() {
       source_interface?: string;
       destination_interface?: string;
       link_type?: string;
+      speed_mbps?: number;
+      vlan?: number;
+      subnet?: string;
     }) => {
       const { data } = await api.post<ApiSuccess<TopologyLink>>("/topology/links", input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["topology"] }),
+  });
+}
+
+export function useUpdateTopologyLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      source_interface?: string | null;
+      destination_interface?: string | null;
+      link_type?: string | null;
+      speed_mbps?: number | null;
+      vlan?: number | null;
+      subnet?: string | null;
+    }) => {
+      const { id, ...rest } = input;
+      const { data } = await api.patch<ApiSuccess<TopologyLink>>(`/topology/links/${id}`, rest);
       return data.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["topology"] }),

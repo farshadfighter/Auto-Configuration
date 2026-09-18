@@ -1,0 +1,18 @@
+id: BP-ASSET-004
+technology: general
+category: asset_management
+version: "1.0"
+severity: high
+title: Asset requires backup but no backup frequency is configured
+description: >
+  An asset flagged as requiring backup should have a backup frequency set, otherwise there
+  is no defined recovery point objective for it.
+applies_to:
+  - field: asset.backup_required
+    operator: equals
+    value: true
+conditions:
+  - field: asset.backup_frequency
+    operator: in
+    value: [null, "none"]
+recommendation: Set a backup frequency (daily/weekly/monthly) for this asset, or clear "backup required" if it does not apply.

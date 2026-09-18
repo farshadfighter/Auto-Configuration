@@ -13,11 +13,14 @@ from app.domains.design.schemas import (
     ComponentCreate,
     ComponentOut,
     DesignCreate,
+    DesignFromTemplateRequest,
     DesignOut,
+    DesignTemplateOut,
     DesignVersionOut,
     RecommendationMappingRequest,
     RelationshipCreate,
     RelationshipOut,
+    RelationshipUpdate,
     VersionGraph,
 )
 
@@ -27,6 +30,49 @@ router = APIRouter()
 class DesignUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+
+
+@router.get("/design-templates", response_model=None)
+def list_design_templates(db: DbSession, current_user=Depends(require_permission("design.view"))):
+    data = [
+        DesignTemplateOut(
+            code=t.code,
+            name=t.name,
+            description=t.description,
+            category=t.category,
+            component_count=len(t.components),
+            relationship_count=len(t.relationships),
+        ).model_dump()
+        for t in service.list_design_templates()
+    ]
+    return success(data)
+
+
+@router.post("/designs/from-template", response_model=None, status_code=status.HTTP_201_CREATED)
+def create_design_from_template(
+    payload: DesignFromTemplateRequest, db: DbSession, current_user=Depends(require_permission("design.create"))
+):
+    design = service.create_design_from_template(
+        db,
+        template_code=payload.template_code,
+        name=payload.name,
+        description=payload.description,
+        created_by=current_user.id,
+    )
+    record_audit_event(
+        db,
+        user_id=current_user.id,
+        action="DESIGN_CREATED_FROM_TEMPLATE",
+        object_type="architecture_design",
+        object_id=design.id,
+        result="SUCCESS",
+        new_value={"template_code": payload.template_code},
+    )
+    db.commit()
+    latest = service.get_latest_version(db, design.id)
+    data = DesignOut.model_validate(design).model_dump(mode="json")
+    data["latest_version"] = DesignVersionOut.model_validate(latest).model_dump(mode="json")
+    return success(data)
 
 
 @router.post("/designs", response_model=None, status_code=status.HTTP_201_CREATED)
@@ -126,6 +172,18 @@ def add_relationship(
     version_id: uuid.UUID, payload: RelationshipCreate, db: DbSession, current_user=Depends(require_permission("design.edit"))
 ):
     relationship = service.add_relationship(db, version_id, payload.model_dump())
+    db.commit()
+    return success(RelationshipOut.model_validate(relationship).model_dump(mode="json"))
+
+
+@router.patch("/designs/relationships/{relationship_id}", response_model=None)
+def update_relationship(
+    relationship_id: uuid.UUID,
+    payload: RelationshipUpdate,
+    db: DbSession,
+    current_user=Depends(require_permission("design.edit")),
+):
+    relationship = service.update_relationship(db, relationship_id, payload.model_dump())
     db.commit()
     return success(RelationshipOut.model_validate(relationship).model_dump(mode="json"))
 

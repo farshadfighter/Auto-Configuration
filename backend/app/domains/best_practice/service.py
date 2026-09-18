@@ -1,5 +1,6 @@
 import uuid
 from collections import defaultdict
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -42,6 +43,7 @@ def _build_asset_contexts(db: Session) -> dict[uuid.UUID, dict]:
 
     asset_types = {t.id: t.code for t in db.scalars(select(AssetType))}
     roles = {r.id: r.code for r in db.scalars(select(AssetRole))}
+    today = date.today()
 
     contexts = {}
     for asset in db.scalars(select(Asset).where(Asset.deleted_at.is_(None))):
@@ -60,6 +62,13 @@ def _build_asset_contexts(db: Session) -> dict[uuid.UUID, dict]:
                 "asset_type_code": asset_types.get(asset.asset_type_id),
                 "role_code": roles.get(asset.role_id) if asset.role_id else None,
                 "metadata": asset.asset_metadata or {},
+                "backup_required": asset.backup_required,
+                "backup_frequency": asset.backup_frequency.value if asset.backup_frequency else None,
+                "information_classification": asset.information_classification.value,
+                "risk_assessment_ref": asset.risk_assessment_ref,
+                "days_until_retirement": (
+                    (asset.planned_retirement_at - today).days if asset.planned_retirement_at else None
+                ),
             },
             "topology": {"degree": degree.get(asset.id, 0)},
         }

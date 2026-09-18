@@ -42,6 +42,32 @@ def test_topology_manual_node_and_link(client, admin_headers):
     assert node_a["id"] in node_ids and node_b["id"] in node_ids
 
 
+def test_topology_link_update_sets_metadata(client, admin_headers):
+    node_a = client.post(
+        "/api/v1/topology/nodes", headers=admin_headers, json={"node_type": "zone", "label": "Core"}
+    ).json()["data"]
+    node_b = client.post(
+        "/api/v1/topology/nodes", headers=admin_headers, json={"node_type": "zone", "label": "Access"}
+    ).json()["data"]
+    link = client.post(
+        "/api/v1/topology/links",
+        headers=admin_headers,
+        json={"source_node_id": node_a["id"], "destination_node_id": node_b["id"]},
+    ).json()["data"]
+
+    updated = client.patch(
+        f"/api/v1/topology/links/{link['id']}",
+        headers=admin_headers,
+        json={"link_type": "wan", "speed_mbps": 100, "vlan": 20, "subnet": "192.0.2.0/30"},
+    )
+    assert updated.status_code == 200, updated.text
+    data = updated.json()["data"]
+    assert data["link_type"] == "wan"
+    assert data["speed_mbps"] == 100
+    assert data["vlan"] == 20
+    assert data["subnet"] == "192.0.2.0/30"
+
+
 def test_topology_link_rejects_unknown_node(client, admin_headers):
     response = client.post(
         "/api/v1/topology/links",
