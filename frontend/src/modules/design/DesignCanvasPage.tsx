@@ -32,7 +32,148 @@ import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColo
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
 import { LinkEditPanel, type LinkEditState } from "../../components/LinkEditPanel";
 import { downloadDiagramPdf, downloadDiagramPng } from "../../utils/exportDiagram";
+import { useCompareDesignVersions, useDesignVersions } from "../../hooks/useDesignDiff";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
+
+function VersionComparePanel({ designId, onClose }: { designId: string; onClose: () => void }) {
+  const { data: versions } = useDesignVersions(designId);
+  const compare = useCompareDesignVersions(designId);
+  const [fromVersionId, setFromVersionId] = useState("");
+  const [toVersionId, setToVersionId] = useState("");
+
+  function handleCompare() {
+    if (!fromVersionId || !toVersionId) return;
+    compare.mutate({ from_version_id: fromVersionId, to_version_id: toVersionId });
+  }
+
+  const diff = compare.data;
+  const hasChanges =
+    diff &&
+    (diff.added_components.length > 0 ||
+      diff.removed_components.length > 0 ||
+      diff.changed_components.length > 0 ||
+      diff.added_relationships.length > 0 ||
+      diff.removed_relationships.length > 0 ||
+      diff.changed_relationships.length > 0);
+
+  return (
+    <div className="panel" style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+        <strong>Compare Versions</strong>
+        <button className="btn-secondary" onClick={onClose} style={{ padding: "2px 8px" }}>
+          &times;
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+          From
+          <select value={fromVersionId} onChange={(e) => setFromVersionId(e.target.value)} autoFocus>
+            <option value="">Select version</option>
+            {versions?.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.version_label} ({v.status})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
+          To
+          <select value={toVersionId} onChange={(e) => setToVersionId(e.target.value)}>
+            <option value="">Select version</option>
+            {versions?.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.version_label} ({v.status})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={handleCompare} disabled={!fromVersionId || !toVersionId || compare.isPending}>
+          {compare.isPending ? "Comparing..." : "Compare"}
+        </button>
+      </div>
+      {compare.isError && <p className="form-error">{getErrorMessage(compare.error, "Could not compare versions")}</p>}
+      {diff && !hasChanges && (
+        <p className="empty-state" style={{ marginTop: 8 }}>
+          No differences between these versions.
+        </p>
+      )}
+      {diff && hasChanges && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          {diff.added_components.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#16a34a" }}>+ Added devices</span>
+              <ul>
+                {diff.added_components.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diff.removed_components.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>- Removed devices</span>
+              <ul>
+                {diff.removed_components.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diff.changed_components.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Changed devices</span>
+              <ul>
+                {diff.changed_components.map((c) => (
+                  <li key={c.name}>
+                    {c.name}:{" "}
+                    {Object.entries(c.changes)
+                      .map(([field, [oldV, newV]]) => `${field} ${String(oldV ?? "—")} → ${String(newV ?? "—")}`)
+                      .join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diff.added_relationships.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#16a34a" }}>+ Added connections</span>
+              <ul>
+                {diff.added_relationships.map((k) => (
+                  <li key={k}>{k}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diff.removed_relationships.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#dc2626" }}>- Removed connections</span>
+              <ul>
+                {diff.removed_relationships.map((k) => (
+                  <li key={k}>{k}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {diff.changed_relationships.length > 0 && (
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)" }}>Changed connections</span>
+              <ul>
+                {diff.changed_relationships.map((r) => (
+                  <li key={r.key}>
+                    {r.key}:{" "}
+                    {Object.entries(r.changes)
+                      .map(([field, [oldV, newV]]) => `${field} ${String(oldV ?? "—")} → ${String(newV ?? "—")}`)
+                      .join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatLinkLabel(r: DesignRelationship): string {
   const parts: string[] = [];
@@ -212,6 +353,7 @@ export function DesignCanvasPage() {
   const [linkEditError, setLinkEditError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showVersionCompare, setShowVersionCompare] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -474,6 +616,9 @@ export function DesignCanvasPage() {
           <button className="btn-secondary" onClick={() => handleExport("pdf")} disabled={exporting}>
             Export PDF
           </button>
+          <button className="btn-secondary" onClick={() => setShowVersionCompare((v) => !v)}>
+            {showVersionCompare ? "Hide Compare" : "Compare Versions"}
+          </button>
           {isDraft && (
             <button onClick={() => approveDesign.mutate(undefined)} disabled={approveDesign.isPending}>
               Approve
@@ -488,6 +633,8 @@ export function DesignCanvasPage() {
       </div>
 
       {exportError && <p className="form-error">{exportError}</p>}
+
+      {showVersionCompare && <VersionComparePanel designId={design.id} onClose={() => setShowVersionCompare(false)} />}
 
       {gapReport && (
         <GapReportPanel

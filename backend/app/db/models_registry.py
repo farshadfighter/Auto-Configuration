@@ -12,4 +12,5 @@ from app.domains.design import models as _design_models  # noqa: F401
 from app.domains.discovery import models as _discovery_models  # noqa: F401
 from app.domains.drift import models as _drift_models  # noqa: F401
 from app.domains.identity import models as _identity_models  # noqa: F401
+from app.domains.notifications import models as _notifications_models  # noqa: F401
 from app.domains.topology import models as _topology_models  # noqa: F401

@@ -72,6 +72,9 @@ def test_drift_analysis_flags_divergence(client, admin_headers, approver_headers
     assert findings[0]["status"] == "new"
     assert any(d["field"] == "name" for d in findings[0]["diff"])
 
+    notifications = client.get("/api/v1/notifications", headers=admin_headers).json()["data"]
+    assert any(n["type"] == "drift_detected" for n in notifications)
+
 
 def test_drift_no_findings_when_state_matches(client, admin_headers, approver_headers, asset_type, monkeypatch):
     asset, job, deployment, fake = _successful_deployment(client, admin_headers, approver_headers, asset_type, monkeypatch, "nodrift-asset")

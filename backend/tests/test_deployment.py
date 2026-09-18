@@ -53,6 +53,9 @@ def test_deployment_precheck_fails_for_unreachable_asset(client, admin_headers, 
     result = client.get(f"/api/v1/deployment/jobs/{deployment['id']}", headers=admin_headers).json()["data"]
     assert result["status"] == "precheck_failed"
 
+    notifications = client.get("/api/v1/notifications", headers=admin_headers).json()["data"]
+    assert any(n["type"] == "deployment_failed" and n["object_id"] == deployment["id"] for n in notifications)
+
 
 def test_deployment_happy_path_with_fake_driver(client, admin_headers, approver_headers, asset_type, monkeypatch):
     asset = _create_reachable_asset(client, admin_headers, asset_type, "dep-happy")
