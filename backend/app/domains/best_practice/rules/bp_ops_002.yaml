@@ -1,0 +1,18 @@
+id: BP-OPS-002
+technology: general
+category: operations
+version: "1.0"
+severity: medium
+title: Managed asset has no log forwarding configured
+description: >
+  Without forwarding logs to a central destination (SIEM/syslog), incident investigation and
+  the SAFE-expected monitoring capability cannot see this asset's activity.
+applies_to:
+  - field: asset.managed
+    operator: equals
+    value: managed
+conditions:
+  - field: asset.metadata.log_forwarding
+    operator: not_equals
+    value: true
+recommendation: Configure this asset to forward logs to the central logging/SIEM destination.

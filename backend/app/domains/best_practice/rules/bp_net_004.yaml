@@ -1,0 +1,18 @@
+id: BP-NET-004
+technology: network
+category: network
+version: "1.0"
+severity: medium
+title: Access switch has no VLAN segmentation configured
+description: >
+  An access-layer switch with no VLAN segmentation puts all connected endpoints in a single
+  broadcast/security domain, undermining zone-based segmentation.
+applies_to:
+  - field: asset.asset_type_code
+    operator: equals
+    value: switch
+conditions:
+  - field: asset.metadata.vlan_segmentation
+    operator: not_equals
+    value: true
+recommendation: Define and document VLANs for this switch's connected endpoints.

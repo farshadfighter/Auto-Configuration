@@ -11,6 +11,7 @@ from app.domains.topology.schemas import (
     TopologyGraph,
     TopologyLinkCreate,
     TopologyLinkOut,
+    TopologyLinkUpdate,
     TopologyNodeCreate,
     TopologyNodeOut,
     TopologyViewOut,
@@ -58,6 +59,18 @@ def create_link(
     link = service.create_link(db, payload.model_dump())
     record_audit_event(
         db, user_id=current_user.id, action="TOPOLOGY_LINK_CREATED", object_type="topology_link", object_id=link.id, result="SUCCESS"
+    )
+    db.commit()
+    return success(TopologyLinkOut.model_validate(link).model_dump(mode="json"))
+
+
+@router.patch("/topology/links/{link_id}", response_model=None)
+def update_link(
+    link_id: uuid.UUID, payload: TopologyLinkUpdate, db: DbSession, current_user=Depends(require_permission("topology.edit"))
+):
+    link = service.update_link(db, link_id, payload.model_dump())
+    record_audit_event(
+        db, user_id=current_user.id, action="TOPOLOGY_LINK_UPDATED", object_type="topology_link", object_id=link.id, result="SUCCESS"
     )
     db.commit()
     return success(TopologyLinkOut.model_validate(link).model_dump(mode="json"))

@@ -82,6 +82,10 @@ class DesignRelationship(UUIDPKMixin, Base):
     relationship_type: Mapped[str] = mapped_column(String(100), nullable=False)
     source_interface: Mapped[str | None] = mapped_column(String(150), nullable=True)
     target_interface: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    link_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    speed_mbps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vlan: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    subnet: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class DesignAssetMapping(Base):

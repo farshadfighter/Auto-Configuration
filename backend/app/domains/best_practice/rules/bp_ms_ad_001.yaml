@@ -1,0 +1,19 @@
+id: BP-MS-AD-001
+technology: microsoft_ad
+category: microsoft
+version: "1.0"
+severity: high
+title: Domain controller has no redundant link
+description: >
+  A domain controller with only a single topology link is a single point of failure for
+  authentication - unlike BP-NET-002, this applies regardless of the asset's criticality
+  field since domain controllers are rarely marked Critical by default.
+applies_to:
+  - field: asset.asset_type_code
+    operator: equals
+    value: domain_controller
+conditions:
+  - field: topology.degree
+    operator: less_than
+    value: 2
+recommendation: Add a redundant physical or logical link for this domain controller, or deploy a second DC.

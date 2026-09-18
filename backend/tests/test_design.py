@@ -72,6 +72,39 @@ def test_relationship_persists_source_and_target_interface(client, admin_headers
     assert relationship["target_interface"] == "Gi0/24"
 
 
+def test_update_relationship_sets_link_metadata(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Link Metadata Test"}).json()["data"]
+    version_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+
+    core = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Core-1"},
+    ).json()["data"]
+    edge = client.post(
+        f"/api/v1/designs/versions/{version_id}/components",
+        headers=admin_headers,
+        json={"component_type": "switch", "name": "Edge-1"},
+    ).json()["data"]
+    rel = client.post(
+        f"/api/v1/designs/versions/{version_id}/relationships",
+        headers=admin_headers,
+        json={"source_component_id": core["id"], "target_component_id": edge["id"], "relationship_type": "uplink"},
+    ).json()["data"]
+
+    updated = client.patch(
+        f"/api/v1/designs/relationships/{rel['id']}",
+        headers=admin_headers,
+        json={"link_type": "trunk", "speed_mbps": 1000, "vlan": 10, "subnet": "10.0.0.0/30"},
+    )
+    assert updated.status_code == 200, updated.text
+    data = updated.json()["data"]
+    assert data["link_type"] == "trunk"
+    assert data["speed_mbps"] == 1000
+    assert data["vlan"] == 10
+    assert data["subnet"] == "10.0.0.0/30"
+
+
 def test_new_version_clones_relationship_interfaces(client, admin_headers):
     design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Clone Interface Test"}).json()["data"]
     v1_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
@@ -226,3 +259,40 @@ def test_map_unknown_recommendation_returns_404_not_a_crash(client, admin_header
 def test_viewer_cannot_create_design(client, viewer_headers):
     response = client.post("/api/v1/designs", headers=viewer_headers, json={"name": "denied"})
     assert response.status_code == 403
+
+
+def test_list_design_templates(client, admin_headers):
+    response = client.get("/api/v1/design-templates", headers=admin_headers)
+    assert response.status_code == 200
+    codes = {t["code"] for t in response.json()["data"]}
+    assert {"small_branch", "three_tier_campus", "small_datacenter"} <= codes
+
+
+def test_create_design_from_template_populates_graph(client, admin_headers):
+    response = client.post(
+        "/api/v1/designs/from-template",
+        headers=admin_headers,
+        json={"template_code": "small_branch", "name": "Branch from template"},
+    )
+    assert response.status_code == 201, response.text
+    design = response.json()["data"]
+    assert design["name"] == "Branch from template"
+    version_id = design["latest_version"]["id"]
+
+    graph = client.get(f"/api/v1/designs/versions/{version_id}", headers=admin_headers).json()["data"]
+    assert len(graph["components"]) == 4
+    assert len(graph["relationships"]) == 3
+    component_names = {c["name"] for c in graph["components"]}
+    assert "Branch Router" in component_names
+    relationship_link_types = {r["link_type"] for r in graph["relationships"]}
+    assert "wan" in relationship_link_types
+
+
+def test_create_design_from_unknown_template_returns_422(client, admin_headers):
+    response = client.post(
+        "/api/v1/designs/from-template",
+        headers=admin_headers,
+        json={"template_code": "does_not_exist", "name": "Bad Template"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "UNKNOWN_DESIGN_TEMPLATE"

@@ -71,6 +71,10 @@ export interface DesignRelationship {
   relationship_type: string;
   source_interface: string | null;
   target_interface: string | null;
+  link_type: string | null;
+  speed_mbps: number | null;
+  vlan: number | null;
+  subnet: string | null;
 }
 
 export function useVersionGraph(versionId: string | undefined) {
@@ -124,8 +128,32 @@ export function useAddRelationship(versionId: string | undefined) {
       relationship_type: string;
       source_interface?: string;
       target_interface?: string;
+      link_type?: string;
+      speed_mbps?: number;
+      vlan?: number;
+      subnet?: string;
     }) => {
       const { data } = await api.post<ApiSuccess<DesignRelationship>>(`/designs/versions/${versionId}/relationships`, input);
+      return data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["designs", "versions", versionId] }),
+  });
+}
+
+export function useUpdateRelationship(versionId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      source_interface?: string | null;
+      target_interface?: string | null;
+      link_type?: string | null;
+      speed_mbps?: number | null;
+      vlan?: number | null;
+      subnet?: string | null;
+    }) => {
+      const { id, ...rest } = input;
+      const { data } = await api.patch<ApiSuccess<DesignRelationship>>(`/designs/relationships/${id}`, rest);
       return data.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["designs", "versions", versionId] }),

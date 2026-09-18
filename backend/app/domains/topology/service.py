@@ -90,6 +90,16 @@ def create_link(db: Session, data: dict) -> TopologyLink:
     return link
 
 
+def update_link(db: Session, link_id: uuid.UUID, data: dict) -> TopologyLink:
+    link = db.get(TopologyLink, link_id)
+    if not link:
+        raise NotFoundError("TOPOLOGY_LINK_NOT_FOUND", f"Topology link {link_id} not found")
+    for key, value in data.items():
+        setattr(link, key, value)
+    db.flush()
+    return link
+
+
 def get_or_create_view(db: Session, view_id: uuid.UUID | None) -> TopologyView:
     if view_id:
         view = db.get(TopologyView, view_id)

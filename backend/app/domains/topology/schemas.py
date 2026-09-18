@@ -29,13 +29,24 @@ class TopologyLinkOut(BaseModel):
     source_interface: str | None = None
     destination_interface: str | None = None
     link_type: str | None = None
+    speed_mbps: int | None = None
     vlan: int | None = None
+    subnet: str | None = None
     status: str
 
 
 class TopologyLinkCreate(BaseModel):
     source_node_id: uuid.UUID
     destination_node_id: uuid.UUID
+    source_interface: str | None = None
+    destination_interface: str | None = None
+    link_type: str | None = None
+    speed_mbps: int | None = None
+    vlan: int | None = None
+    subnet: str | None = None
+
+
+class TopologyLinkUpdate(BaseModel):
     source_interface: str | None = None
     destination_interface: str | None = None
     link_type: str | None = None

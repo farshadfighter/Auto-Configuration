@@ -3,10 +3,11 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, ValidationAppError
 from app.db.base import utcnow
 from app.domains.assets.models import Asset
 from app.domains.best_practice.models import ArchitectureFinding
+from app.domains.design import templates as template_catalog
 from app.domains.design.models import (
     ArchitectureDesign,
     ArchitectureDesignVersion,
@@ -25,6 +26,47 @@ def create_design(db: Session, *, name: str, description: str | None, mode: str,
     db.flush()
     version = ArchitectureDesignVersion(design_id=design.id, version_number=1, created_by=created_by)
     db.add(version)
+    db.flush()
+    return design
+
+
+def list_design_templates() -> list[template_catalog.DesignTemplate]:
+    return template_catalog.list_templates()
+
+
+def create_design_from_template(
+    db: Session, *, template_code: str, name: str, description: str | None, created_by: uuid.UUID | None
+) -> ArchitectureDesign:
+    template = template_catalog.get_template(template_code)
+    if not template:
+        raise ValidationAppError("UNKNOWN_DESIGN_TEMPLATE", f"No design template '{template_code}'")
+
+    design = create_design(db, name=name, description=description, mode="manual", created_by=created_by)
+    version = get_latest_version(db, design.id)
+
+    component_id_by_key: dict[str, uuid.UUID] = {}
+    for tc in template.components:
+        component = DesignComponent(
+            design_version_id=version.id,
+            component_type=tc.component_type,
+            name=tc.name,
+            properties={"safe_pin": tc.safe_pin} if tc.safe_pin else None,
+            position=tc.position,
+        )
+        db.add(component)
+        db.flush()
+        component_id_by_key[tc.key] = component.id
+
+    for tr in template.relationships:
+        db.add(
+            DesignRelationship(
+                design_version_id=version.id,
+                source_component_id=component_id_by_key[tr.source_key],
+                target_component_id=component_id_by_key[tr.target_key],
+                relationship_type=tr.relationship_type,
+                link_type=tr.link_type,
+            )
+        )
     db.flush()
     return design
 
@@ -112,6 +154,10 @@ def create_new_version(db: Session, design_id: uuid.UUID, created_by: uuid.UUID 
                 relationship_type=relationship.relationship_type,
                 source_interface=relationship.source_interface,
                 target_interface=relationship.target_interface,
+                link_type=relationship.link_type,
+                speed_mbps=relationship.speed_mbps,
+                vlan=relationship.vlan,
+                subnet=relationship.subnet,
             )
         )
     db.flush()
@@ -135,6 +181,18 @@ def add_relationship(db: Session, version_id: uuid.UUID, data: dict) -> DesignRe
             raise NotFoundError("DESIGN_COMPONENT_NOT_FOUND", f"Design component {data[key]} not found")
     relationship = DesignRelationship(design_version_id=version_id, **data)
     db.add(relationship)
+    db.flush()
+    return relationship
+
+
+def update_relationship(db: Session, relationship_id: uuid.UUID, data: dict) -> DesignRelationship:
+    relationship = db.get(DesignRelationship, relationship_id)
+    if not relationship:
+        raise NotFoundError("DESIGN_RELATIONSHIP_NOT_FOUND", f"Design relationship {relationship_id} not found")
+    version = get_version(db, relationship.design_version_id)
+    _require_draft(version)
+    for key, value in data.items():
+        setattr(relationship, key, value)
     db.flush()
     return relationship
 

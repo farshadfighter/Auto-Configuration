@@ -1,0 +1,18 @@
+id: BP-ISMS-001
+technology: general
+category: isms
+version: "1.0"
+severity: high
+title: Confidential/Restricted asset has no risk assessment reference
+description: >
+  An asset classified Confidential or Restricted (ISO/IEC 27001 Annex A.5.12) should have a
+  documented risk assessment reference, or its handling controls cannot be traced to an
+  assessed risk.
+applies_to:
+  - field: asset.information_classification
+    operator: in
+    value: [confidential, restricted]
+conditions:
+  - field: asset.risk_assessment_ref
+    operator: not_exists
+recommendation: Record a risk assessment reference for this asset in the ISMS asset register.
