@@ -1,5 +1,6 @@
 import {
   Background,
+  ConnectionMode,
   Controls,
   ReactFlow,
   type Connection,
@@ -27,7 +28,6 @@ import type { CoverageWarnings, LocationGapFinding, ScaleGapFinding } from "../.
 import { getErrorMessage } from "../../services/api";
 import { SAFE_PIN_COLORS, DEFAULT_NODE_COLOR } from "../../constants/safePinColors";
 import { PALETTE_DEVICE_TYPES, DeviceIcon } from "../../components/DeviceIcon";
-import { defaultPortsForType } from "../../constants/devicePorts";
 import { DEVICE_NODE_TYPES, type DeviceNodeData } from "./DeviceNode";
 
 function GapReportPanel({
@@ -140,8 +140,6 @@ interface PendingConnection {
   target: string;
   sourceLabel: string;
   targetLabel: string;
-  sourcePorts: string[];
-  targetPorts: string[];
 }
 
 export function DesignCanvasPage() {
@@ -295,23 +293,27 @@ export function DesignCanvasPage() {
     if (!connection.source || !connection.target) return;
     const sourceComponent = componentsById.get(connection.source);
     const targetComponent = componentsById.get(connection.target);
-    const sourcePorts = defaultPortsForType(sourceComponent?.component_type);
-    const targetPorts = defaultPortsForType(targetComponent?.component_type);
 
-    // Neither side has a known port catalog (e.g. a cross-cutting capability like SIEM) -
-    // connect immediately rather than asking the user to pick from an empty list.
-    if (sourcePorts.length === 0 && targetPorts.length === 0) {
-      void commitConnection(connection.source, connection.target);
+    // The drag started/ended on a specific named port handle (EVE-NG style: dragging directly
+    // from one device's port dot to another's) - commit the connection immediately with those
+    // exact ports, no confirmation panel needed.
+    if (connection.sourceHandle || connection.targetHandle) {
+      void commitConnection(
+        connection.source,
+        connection.target,
+        connection.sourceHandle ?? undefined,
+        connection.targetHandle ?? undefined,
+      );
       return;
     }
 
+    // Fallback for portless (cross-cutting capability) device types with only the 4 generic
+    // handles - ask for optional free-text port names instead.
     setPendingConnection({
       source: connection.source,
       target: connection.target,
       sourceLabel: sourceComponent?.name ?? "source",
       targetLabel: targetComponent?.name ?? "target",
-      sourcePorts,
-      targetPorts,
     });
     setSourcePort("");
     setTargetPort("");
@@ -470,6 +472,7 @@ export function DesignCanvasPage() {
             onPaneClick={() => setSelectedComponentId(null)}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
+            connectionMode={ConnectionMode.Loose}
             fitView
           >
             <Background />
@@ -551,33 +554,11 @@ export function DesignCanvasPage() {
           <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
               {pendingConnection.sourceLabel} port
-              {pendingConnection.sourcePorts.length > 0 ? (
-                <select value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} autoFocus>
-                  <option value="">No port</option>
-                  {pendingConnection.sourcePorts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input placeholder="Port (optional)" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} />
-              )}
+              <input placeholder="Port (optional)" value={sourcePort} onChange={(e) => setSourcePort(e.target.value)} autoFocus />
             </label>
             <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--color-text-secondary)" }}>
               {pendingConnection.targetLabel} port
-              {pendingConnection.targetPorts.length > 0 ? (
-                <select value={targetPort} onChange={(e) => setTargetPort(e.target.value)}>
-                  <option value="">No port</option>
-                  {pendingConnection.targetPorts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input placeholder="Port (optional)" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} />
-              )}
+              <input placeholder="Port (optional)" value={targetPort} onChange={(e) => setTargetPort(e.target.value)} />
             </label>
             <button onClick={handleConfirmConnection} disabled={connecting}>
               {connecting ? "Connecting..." : "Connect"}
