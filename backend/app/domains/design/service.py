@@ -145,6 +145,13 @@ def create_new_version(db: Session, design_id: uuid.UUID, created_by: uuid.UUID 
         db.flush()
         component_id_map[component.id] = clone.id
 
+    if component_id_map:
+        mappings = db.scalars(
+            select(DesignAssetMapping).where(DesignAssetMapping.design_component_id.in_(component_id_map.keys()))
+        )
+        for mapping in mappings:
+            db.add(DesignAssetMapping(design_component_id=component_id_map[mapping.design_component_id], asset_id=mapping.asset_id))
+
     for relationship in db.scalars(select(DesignRelationship).where(DesignRelationship.design_version_id == latest.id)):
         db.add(
             DesignRelationship(
@@ -215,6 +222,80 @@ def get_version_graph(db: Session, version_id: uuid.UUID) -> tuple[list[DesignCo
             component.asset_id = asset_id_by_component.get(component.id)
 
     return components, relationships
+
+
+def list_versions(db: Session, design_id: uuid.UUID) -> list[ArchitectureDesignVersion]:
+    get_design(db, design_id)
+    return list(
+        db.scalars(
+            select(ArchitectureDesignVersion)
+            .where(ArchitectureDesignVersion.design_id == design_id)
+            .order_by(ArchitectureDesignVersion.version_number)
+        )
+    )
+
+
+_RELATIONSHIP_DIFF_FIELDS = ("source_interface", "target_interface", "link_type", "speed_mbps", "vlan", "subnet")
+
+
+def compute_version_diff(db: Session, from_version_id: uuid.UUID, to_version_id: uuid.UUID) -> dict:
+    """Diffs two versions of the same design by matching components by name and relationships by
+    (source name, target name, type) - component/relationship ids are NOT stable across versions
+    since create_new_version clones everything with fresh ids, so identity has to be name-based."""
+    from_components, from_relationships = get_version_graph(db, from_version_id)
+    to_components, to_relationships = get_version_graph(db, to_version_id)
+
+    from_by_name = {c.name: c for c in from_components}
+    to_by_name = {c.name: c for c in to_components}
+
+    added_components = sorted(set(to_by_name) - set(from_by_name))
+    removed_components = sorted(set(from_by_name) - set(to_by_name))
+    changed_components = []
+    for name in sorted(set(from_by_name) & set(to_by_name)):
+        old, new = from_by_name[name], to_by_name[name]
+        changes: dict[str, list] = {}
+        if old.component_type != new.component_type:
+            changes["component_type"] = [old.component_type, new.component_type]
+        old_pin = (old.properties or {}).get("safe_pin")
+        new_pin = (new.properties or {}).get("safe_pin")
+        if old_pin != new_pin:
+            changes["safe_pin"] = [old_pin, new_pin]
+        if bool(old.asset_id) != bool(new.asset_id):
+            changes["mapped_to_inventory"] = [bool(old.asset_id), bool(new.asset_id)]
+        if changes:
+            changed_components.append({"name": name, "changes": changes})
+
+    def relationship_key(names_by_id: dict[uuid.UUID, str], relationship: DesignRelationship) -> str:
+        source_name = names_by_id.get(relationship.source_component_id, "?")
+        target_name = names_by_id.get(relationship.target_component_id, "?")
+        return f"{source_name} -> {target_name} ({relationship.relationship_type})"
+
+    from_names_by_id = {c.id: c.name for c in from_components}
+    to_names_by_id = {c.id: c.name for c in to_components}
+    from_rel_by_key = {relationship_key(from_names_by_id, r): r for r in from_relationships}
+    to_rel_by_key = {relationship_key(to_names_by_id, r): r for r in to_relationships}
+
+    added_relationships = sorted(set(to_rel_by_key) - set(from_rel_by_key))
+    removed_relationships = sorted(set(from_rel_by_key) - set(to_rel_by_key))
+    changed_relationships = []
+    for key in sorted(set(from_rel_by_key) & set(to_rel_by_key)):
+        old, new = from_rel_by_key[key], to_rel_by_key[key]
+        changes = {
+            field: [getattr(old, field), getattr(new, field)]
+            for field in _RELATIONSHIP_DIFF_FIELDS
+            if getattr(old, field) != getattr(new, field)
+        }
+        if changes:
+            changed_relationships.append({"key": key, "changes": changes})
+
+    return {
+        "added_components": added_components,
+        "removed_components": removed_components,
+        "changed_components": changed_components,
+        "added_relationships": added_relationships,
+        "removed_relationships": removed_relationships,
+        "changed_relationships": changed_relationships,
+    }
 
 
 def map_component_to_asset(db: Session, component_id: uuid.UUID, asset_id: uuid.UUID) -> None:

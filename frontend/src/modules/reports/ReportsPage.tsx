@@ -1,4 +1,5 @@
 import {
+  downloadReportCsv,
   useAssetInventoryReport,
   useBackupsReport,
   useConfigurationJobsReport,
@@ -12,6 +13,17 @@ function TileStatus({ isLoading, isError }: { isLoading: boolean; isError: boole
   if (isError) return <p className="form-error">Failed to load.</p>;
   if (isLoading) return <p>Loading...</p>;
   return null;
+}
+
+function TileHeader({ title, reportName }: { title: string; reportName: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <h2 style={{ margin: 0 }}>{title}</h2>
+      <button className="btn-secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => downloadReportCsv(reportName)}>
+        Export CSV
+      </button>
+    </div>
+  );
 }
 
 function CountBreakdown({ counts, exclude = [] }: { counts: Record<string, unknown>; exclude?: string[] }) {
@@ -56,22 +68,22 @@ export function ReportsPage() {
       <h1>Reports</h1>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <div className="kpi-tile">
-          <h2>Asset Inventory</h2>
+          <TileHeader title="Asset Inventory" reportName="asset-inventory" />
           <TileStatus isLoading={inventory.isLoading} isError={inventory.isError} />
           {inventory.data && <CountBreakdown counts={inventory.data} />}
         </div>
         <div className="kpi-tile">
-          <h2>Architecture Findings</h2>
+          <TileHeader title="Architecture Findings" reportName="architecture-findings" />
           <TileStatus isLoading={findings.isLoading} isError={findings.isError} />
           {findings.data && <CountBreakdown counts={findings.data} />}
         </div>
         <div className="kpi-tile">
-          <h2>Configuration Jobs</h2>
+          <TileHeader title="Configuration Jobs" reportName="configuration-jobs" />
           <TileStatus isLoading={jobs.isLoading} isError={jobs.isError} />
           {jobs.data && <CountBreakdown counts={jobs.data} />}
         </div>
         <div className="kpi-tile">
-          <h2>Deployments</h2>
+          <TileHeader title="Deployments" reportName="deployments" />
           <TileStatus isLoading={deployments.isLoading} isError={deployments.isError} />
           {deployments.data && (
             <>
@@ -81,18 +93,20 @@ export function ReportsPage() {
           )}
         </div>
         <div className="kpi-tile">
-          <h2>Backups</h2>
+          <TileHeader title="Backups" reportName="backups" />
           <TileStatus isLoading={backups.isLoading} isError={backups.isError} />
           {backups.data && <CountBreakdown counts={backups.data} />}
         </div>
         <div className="kpi-tile">
-          <h2>Configuration Drift</h2>
+          <TileHeader title="Configuration Drift" reportName="drift" />
           <TileStatus isLoading={drift.isLoading} isError={drift.isError} />
           {drift.data && <CountBreakdown counts={drift.data} />}
         </div>
       </div>
 
-      <h2 style={{ marginTop: 24 }}>Technology Coverage</h2>
+      <div style={{ marginTop: 24 }}>
+        <TileHeader title="Technology Coverage" reportName="technology-coverage" />
+      </div>
       <TileStatus isLoading={coverage.isLoading} isError={coverage.isError} />
       {coverage.data && (
         <table className="data-table">

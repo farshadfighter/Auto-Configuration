@@ -15,6 +15,7 @@ from app.domains.configuration.models import JobStatus as ConfigJobStatus
 from app.domains.credentials import service as credentials_service
 from app.domains.deployment.models import DeploymentEvent, DeploymentJob, DeploymentResult, DeploymentStatus, DeploymentTarget, ResourceLock
 from app.domains.drift import service as drift_service
+from app.domains.notifications import service as notifications_service
 from app.drivers.base import Operation
 from app.drivers.registry import get_driver
 
@@ -103,6 +104,16 @@ def _fail(db: Session, deployment: DeploymentJob, status: DeploymentStatus, mess
     deployment.completed_at = utcnow()
     _log_event(db, deployment.id, status.value, message)
     _release_locks(db, deployment.id)
+    if deployment.created_by:
+        notifications_service.create_notification(
+            db,
+            user_id=deployment.created_by,
+            type="deployment_failed",
+            title=f"Deployment {status.value.replace('_', ' ')}",
+            message=message,
+            object_type="deployment_job",
+            object_id=deployment.id,
+        )
     db.flush()
     return deployment
 

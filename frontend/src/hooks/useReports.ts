@@ -11,6 +11,18 @@ function useReport<T>(name: string) {
   });
 }
 
+export async function downloadReportCsv(name: string): Promise<void> {
+  const response = await api.get(`/reports/${name}`, { params: { format: "csv" }, responseType: "blob" });
+  const url = URL.createObjectURL(new Blob([response.data], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${name.replace(/-/g, "_")}_report.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export interface CountReport {
   total: number;
   [key: string]: unknown;

@@ -114,6 +114,24 @@ def update_design(design_id: uuid.UUID, payload: DesignUpdate, db: DbSession, cu
     return success(DesignOut.model_validate(design).model_dump(mode="json"))
 
 
+@router.get("/designs/{design_id}/versions", response_model=None)
+def list_design_versions(design_id: uuid.UUID, db: DbSession, current_user=Depends(require_permission("design.view"))):
+    versions = service.list_versions(db, design_id)
+    return success([DesignVersionOut.model_validate(v).model_dump(mode="json") for v in versions])
+
+
+@router.get("/designs/{design_id}/versions/diff", response_model=None)
+def diff_design_versions(
+    design_id: uuid.UUID,
+    from_version_id: uuid.UUID,
+    to_version_id: uuid.UUID,
+    db: DbSession,
+    current_user=Depends(require_permission("design.view")),
+):
+    diff = service.compute_version_diff(db, from_version_id, to_version_id)
+    return success(diff)
+
+
 @router.post("/designs/{design_id}/versions", response_model=None, status_code=status.HTTP_201_CREATED)
 def create_version(design_id: uuid.UUID, db: DbSession, current_user=Depends(require_permission("design.edit"))):
     version = service.create_new_version(db, design_id, current_user.id)

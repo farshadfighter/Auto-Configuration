@@ -12,6 +12,7 @@ from app.domains.configuration.engine import diff_fields
 from app.domains.configuration.models import ConfigurationVersion
 from app.domains.credentials import service as credentials_service
 from app.domains.drift.models import DriftResult, DriftRun, DriftRunStatus, DriftSeverity, DriftStatus
+from app.domains.notifications import service as notifications_service
 from app.drivers.registry import get_driver
 
 
@@ -94,6 +95,16 @@ def execute_drift_run(db: Session, run_id: uuid.UUID) -> DriftRun:
         run.drift_found_count = drift_found
         run.status = DriftRunStatus.SUCCESS
         run.completed_at = utcnow()
+        if drift_found > 0:
+            notifications_service.notify_users(
+                db,
+                notifications_service.user_ids_with_permission(db, "drift.triage"),
+                type="drift_detected",
+                title="Configuration drift detected",
+                message=f"{drift_found} drifted object(s) found across {assets_checked} asset(s) checked.",
+                object_type="drift_run",
+                object_id=run.id,
+            )
         db.flush()
         return run
     except Exception:

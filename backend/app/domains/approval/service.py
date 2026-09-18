@@ -7,6 +7,7 @@ from app.core.errors import ConflictError, NotFoundError, ValidationAppError
 from app.db.base import utcnow
 from app.domains.approval.models import ApprovalAction, ApprovalActionType, ApprovalRequest, ApprovalRequestStatus
 from app.domains.configuration import service as configuration_service
+from app.domains.notifications import service as notifications_service
 
 # Risk-based approval policy (spec section 57: rules based on risk). A dedicated
 # approval_policies table with configurable rules is a natural extension once more than one
@@ -22,6 +23,16 @@ def create_request_for_job(db: Session, job_id: uuid.UUID, risk_level: str | Non
         required_approvals=_REQUIRED_APPROVALS_BY_RISK.get(risk, 1),
     )
     db.add(request)
+    db.flush()
+    notifications_service.notify_users(
+        db,
+        notifications_service.user_ids_with_permission(db, "approval.approve"),
+        type="approval_requested",
+        title="Approval requested",
+        message=f"A {risk} risk configuration job is waiting for approval.",
+        object_type="approval_request",
+        object_id=request.id,
+    )
     db.flush()
     return request
 

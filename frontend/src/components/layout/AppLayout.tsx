@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { useLogout } from "../../hooks/useAuth";
 import { useAuthStore } from "../../stores/authStore";
+import { NotificationBell } from "./NotificationBell";
 import { Sidebar } from "./Sidebar";
 
 function initials(name: string): string {
@@ -21,6 +22,7 @@ export function AppLayout() {
         <header className="topbar">
           <span />
           <div className="topbar-user">
+            <NotificationBell />
             <span className="topbar-avatar">{displayName ? initials(displayName) : ""}</span>
             <span>{displayName}</span>
             <button onClick={logout}>Sign out</button>

@@ -177,6 +177,27 @@ def test_new_version_clones_components(client, admin_headers):
     assert graph["components"][0]["name"] == "Core-1"
 
 
+def test_new_version_clones_asset_mapping(client, admin_headers, asset_type):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Clone Mapping Test"}).json()["data"]
+    v1_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+    component = client.post(
+        f"/api/v1/designs/versions/{v1_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Mapped-Router"},
+    ).json()["data"]
+    asset = client.post(
+        "/api/v1/assets", headers=admin_headers, json={"name": "Mapped-Router-Asset", "asset_type_id": str(asset_type.id)}
+    ).json()["data"]
+    client.post(f"/api/v1/designs/components/{component['id']}/map-asset", headers=admin_headers, json={"asset_id": asset["id"]})
+
+    client.post(f"/api/v1/designs/{design['id']}/approve", headers=admin_headers, json={})
+    v2 = client.post(f"/api/v1/designs/{design['id']}/versions", headers=admin_headers).json()["data"]
+
+    graph = client.get(f"/api/v1/designs/versions/{v2['id']}", headers=admin_headers).json()["data"]
+    cloned = next(c for c in graph["components"] if c["name"] == "Mapped-Router")
+    assert cloned["asset_id"] == asset["id"]
+
+
 def test_approving_new_version_supersedes_previous(client, admin_headers):
     design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Supersede Test"}).json()["data"]
     v1 = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]
@@ -296,3 +317,77 @@ def test_create_design_from_unknown_template_returns_422(client, admin_headers):
     )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "UNKNOWN_DESIGN_TEMPLATE"
+
+
+def test_list_design_versions(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Version List Test"}).json()["data"]
+    client.post(f"/api/v1/designs/{design['id']}/approve", headers=admin_headers, json={})
+    client.post(f"/api/v1/designs/{design['id']}/versions", headers=admin_headers)
+
+    versions = client.get(f"/api/v1/designs/{design['id']}/versions", headers=admin_headers).json()["data"]
+    assert [v["version_number"] for v in versions] == [1, 2]
+    assert versions[0]["status"] == "approved"
+    assert versions[1]["status"] == "draft"
+
+
+def test_diff_design_versions_detects_added_removed_and_changed(client, admin_headers):
+    design = client.post("/api/v1/designs", headers=admin_headers, json={"name": "Diff Test"}).json()["data"]
+    v1_id = client.get(f"/api/v1/designs/{design['id']}", headers=admin_headers).json()["data"]["latest_version"]["id"]
+
+    core = client.post(
+        f"/api/v1/designs/versions/{v1_id}/components",
+        headers=admin_headers,
+        json={"component_type": "router", "name": "Core-1"},
+    ).json()["data"]
+    stale = client.post(
+        f"/api/v1/designs/versions/{v1_id}/components",
+        headers=admin_headers,
+        json={"component_type": "switch", "name": "Stale-Switch"},
+    ).json()["data"]
+    client.post(
+        f"/api/v1/designs/versions/{v1_id}/relationships",
+        headers=admin_headers,
+        json={
+            "source_component_id": core["id"],
+            "target_component_id": stale["id"],
+            "relationship_type": "uplink",
+            "link_type": "lan",
+        },
+    )
+
+    client.post(f"/api/v1/designs/{design['id']}/approve", headers=admin_headers, json={})
+    v2 = client.post(f"/api/v1/designs/{design['id']}/versions", headers=admin_headers).json()["data"]
+    v2_id = v2["id"]
+
+    graph = client.get(f"/api/v1/designs/versions/{v2_id}", headers=admin_headers).json()["data"]
+    cloned_relationship = graph["relationships"][0]
+
+    # Remove the stale switch and its link, add a new firewall, and change the link type on a kept relationship.
+    client.post(
+        f"/api/v1/designs/versions/{v2_id}/components",
+        headers=admin_headers,
+        json={"component_type": "firewall", "name": "New-Firewall"},
+    )
+    client.patch(
+        f"/api/v1/designs/relationships/{cloned_relationship['id']}",
+        headers=admin_headers,
+        json={"link_type": "trunk"},
+    )
+    # No delete-component endpoint exists - simulate removal by diffing against v1 (which still
+    # has Stale-Switch) instead of actually deleting it from v2.
+
+    diff = client.get(
+        f"/api/v1/designs/{design['id']}/versions/diff",
+        headers=admin_headers,
+        params={"from_version_id": v1_id, "to_version_id": v2_id},
+    ).json()["data"]
+
+    assert "New-Firewall" in diff["added_components"]
+    assert diff["removed_components"] == []
+    changed_names = {c["name"] for c in diff["changed_components"]}
+    assert changed_names == set()
+
+    changed_rel_keys = {r["key"] for r in diff["changed_relationships"]}
+    assert any("Core-1 -> Stale-Switch" in k for k in changed_rel_keys)
+    matching = next(r for r in diff["changed_relationships"] if "Core-1 -> Stale-Switch" in r["key"])
+    assert matching["changes"]["link_type"] == ["lan", "trunk"]
